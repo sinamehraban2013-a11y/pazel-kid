@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -8,8 +9,9 @@ class AssetManager {
   static const String scriptBaseUrl =
       "https://script.google.com/macros/s/AKfycbwBLyDbJu78M_nxaZtfcfFtd6DSMp6yl3Lu2lPOPwimuDynqGN8cTvZr4JpN3eJhxGA/exec";
 
-  static const String imageFolderId = "*******";
-  static const String audioFolderId = "*******";
+  // شناسه‌های دقیق پوشه‌های گوگل درایو
+  static const String imageFolderId = "1CHlj2vLFuc-JjHAKREjcQ-YfZVO3ueBh";
+  static const String audioFolderId = "1tFPotXvU0NxyR8Jqsh8SPI3DZakKps08";
 
   static final Dio _dio = Dio(
     BaseOptions(
@@ -136,5 +138,37 @@ class AssetManager {
     } catch (e) {
       return null;
     }
+  }
+
+  /// متد سازگار با game_screen: دریافت بایت‌های تصویر پازل
+  static Future<Uint8List> fetchRandomImage(int level) async {
+    if (cachedImageUrls.isEmpty) {
+      cachedImageUrls = await _fetchFolderFileUrls(imageFolderId, 'image');
+    }
+    if (cachedImageUrls.isEmpty) {
+      throw Exception('پوشه تصاویر خالی است یا دسترسی ممکن نیست.');
+    }
+
+    final random = Random();
+    final String selectedImageUrl = cachedImageUrls[random.nextInt(cachedImageUrls.length)];
+
+    final response = await _dio.get<List<int>>(
+      selectedImageUrl,
+      options: Options(responseType: ResponseType.bytes),
+    );
+
+    if (response.statusCode == 200 && response.data != null) {
+      return Uint8List.fromList(response.data!);
+    }
+    throw Exception('خطا در بارگذاری بایت‌های تصویر پازل');
+  }
+
+  /// متد سازگار با game_screen: دریافت مسیر فایل صوتی دانلود شده
+  static Future<String> fetchRandomMusic(int level) async {
+    final audioPath = await getRandomAudioOnly();
+    if (audioPath != null) {
+      return audioPath;
+    }
+    throw Exception('خطا در دریافت و ذخیره فایل صوتی');
   }
 }
