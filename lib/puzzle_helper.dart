@@ -4,43 +4,44 @@ import 'package:image/image.dart' as img;
 class PuzzlePieceData {
   final int index;
   final Uint8List imageBytes;
-  bool isPlaced;
 
-  PuzzlePieceData({required this.index, required this.imageBytes, this.isPlaced = false});
+  PuzzlePieceData({required this.index, required this.imageBytes});
 }
 
 class PuzzleHelper {
-  static (int rows, int cols) getGridDimensions(int pieceCount) {
-    int cols = 2;
-    int rows = pieceCount ~/ cols;
-    return (rows, cols);
-  }
+  static List<PuzzlePieceData> splitImage({
+    required Uint8List inputBytes,
+    required int rows,
+    required int cols,
+  }) {
+    final img.Image? decoded = img.decodeImage(inputBytes);
+    if (decoded == null) return [];
 
-  static Future<List<PuzzlePieceData>> splitImage(Uint8List imageBytes, int pieceCount) async {
-    final (rows, cols) = getGridDimensions(pieceCount);
-    img.Image? fullImage = img.decodeImage(imageBytes);
-    if (fullImage == null) return [];
+    // کادربندی مربع مرکزی در صورت مساوی نبودن طول و عرض
+    int minSide = decoded.width < decoded.height ? decoded.width : decoded.height;
+    int offsetX = (decoded.width - minSide) ~/ 2;
+    int offsetY = (decoded.height - minSide) ~/ 2;
+    final img.Image squareImage = img.copyCrop(decoded, x: offsetX, y: offsetY, width: minSide, height: minSide);
 
-    int pieceWidth = fullImage.width ~/ cols;
-    int pieceHeight = fullImage.height ~/ rows;
+    final int pieceWidth = squareImage.width ~/ cols;
+    final int pieceHeight = squareImage.height ~/ rows;
 
     List<PuzzlePieceData> pieces = [];
-    int index = 0;
+    int counter = 0;
 
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
-        img.Image cropped = img.copyCrop(
-          fullImage,
+        final img.Image croppedPiece = img.copyCrop(
+          squareImage,
           x: c * pieceWidth,
           y: r * pieceHeight,
           width: pieceWidth,
           height: pieceHeight,
         );
 
-        pieces.add(PuzzlePieceData(
-          index: index++,
-          imageBytes: Uint8List.fromList(img.encodePng(cropped)),
-        ));
+        final Uint8List piecePng = Uint8List.fromList(img.encodePng(croppedPiece));
+        pieces.add(PuzzlePieceData(index: counter, imageBytes: piecePng));
+        counter++;
       }
     }
     return pieces;
