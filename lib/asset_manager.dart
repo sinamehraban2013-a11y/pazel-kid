@@ -92,7 +92,7 @@ class AssetManager {
       cachedImageUrls = await _fetchFolderFileUrls(imageFolderId, 'image');
     }
     if (cachedImageUrls.isEmpty) {
-      throw Exception('لیست تصاویر دریافت نشد');
+      throw Exception('فهرست تصاویر در دسترس نیست');
     }
 
     final random = Random();
@@ -107,7 +107,7 @@ class AssetManager {
     if (response.statusCode == 200 && response.data != null) {
       return Uint8List.fromList(response.data!);
     }
-    throw Exception('خطا در دریافت فایل تصویر');
+    throw Exception('خطا در دریافت تصویر');
   }
 
   static Future<String> fetchRandomMusic({ProgressCallback? onProgress}) async {
@@ -115,7 +115,7 @@ class AssetManager {
       cachedAudioUrls = await _fetchFolderFileUrls(audioFolderId, 'audio');
     }
     if (cachedAudioUrls.isEmpty) {
-      throw Exception('لیست فایل‌های صوتی دریافت نشد');
+      throw Exception('فهرست اصوات در دسترس نیست');
     }
 
     final random = Random();
