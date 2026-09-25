@@ -24,14 +24,18 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # حذف پوشه اندروید ناقص قبلی و ایجاد اسکلت کاملاً استاندارد و تازه
       - name: Recreate Clean Android Structure
         run: |
           rm -rf android
           flutter create . --org com.example --project-name puzzle_kids_game --platforms=android
 
-      # افزودن مجوز اینترنت برای دانلود تصاویر و موسیقی
-      - name: Add Internet Permission to Manifest
+      # این بخش SDK را مجبور می‌کند از نسخه 34 استفاده کند تا خطای 35 برطرف شود
+      - name: Force Android SDK 34
+        run: |
+          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
+          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/g' android/app/build.gradle
+
+      - name: Add Internet Permission
         run: |
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"\/>' android/app/src/main/AndroidManifest.xml
 
