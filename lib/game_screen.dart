@@ -9,7 +9,11 @@ class GameScreen extends StatefulWidget {
   final String playerName;
   final int initialLevel;
 
-  const GameScreen({Key? key, required this.playerName, required this.initialLevel}) : super(key: key);
+  const GameScreen({
+    Key? key,
+    required this.playerName,
+    required this.initialLevel,
+  }) : super(key: key);
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -20,11 +24,15 @@ enum GameStatus { loading, readyToStart, playing, won, lost }
 class _GameScreenState extends State<GameScreen> {
   late int _currentLevel;
   GameStatus _status = GameStatus.loading;
-  
+
   final AudioPlayer _audioPlayer = AudioPlayer();
   List<PuzzlePieceData> _correctGrid = [];
   List<PuzzlePieceData> _shuffledPieces = [];
   int _targetPiecesCount = 4;
+
+  // نگهداری داده‌های پازل و صوت جاری برای استفاده در تلاش مجدد
+  Uint8List? _currentImageBytes;
+  String? _currentMusicPath;
 
   @override
   void initState() {
@@ -50,9 +58,12 @@ class _GameScreenState extends State<GameScreen> {
       final imgBytes = await AssetManager.fetchRandomImage(_currentLevel);
       final musicPath = await AssetManager.fetchRandomMusic(_currentLevel);
 
+      _currentImageBytes = imgBytes;
+      _currentMusicPath = musicPath;
+
       final pieces = await PuzzleHelper.splitImage(imgBytes, _targetPiecesCount);
       _correctGrid = List.from(pieces);
-      
+
       _shuffledPieces = List.from(pieces)..shuffle();
       for (var p in _shuffledPieces) {
         p.isPlaced = false;
@@ -76,14 +87,140 @@ class _GameScreenState extends State<GameScreen> {
   void _onTimeFinished() {
     _audioPlayer.stop();
     setState(() => _status = GameStatus.lost);
-    _showOutcomeDialog(
-      title: "عزیزم نیاز به تلاش بیشتر داری 🌱",
-      buttonText: "تلاش دوباره 🔁",
-      onPressed: () {
-        Navigator.pop(context);
-        _prepareLevel();
-      },
+    _showGameOverDialog();
+  }
+
+  /// دیالوگ سه گزینه‌ای هنگام تمام شدن زمان/آهنگ
+  void _showGameOverDialog() {
+    showDialog(
+      barrierDismissible: false,
+      context: context,
+      builder: (_) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: const Color(0xFFFFF9E6),
+          title: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.sentiment_dissatisfied, color: Color(0xFFFF8A00), size: 30),
+              SizedBox(width: 8),
+              Text(
+                "عزیزم نیاز به تلاش بیشتر داری 🌱",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: Color(0xFF6B4226),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "آهنگ تموم شد! چطور ادامه بدیم؟",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Color(0xFF4A4A4A)),
+              ),
+              const SizedBox(height: 18),
+
+              // گزینه ۱: تکرار همین پازل و همین آهنگ
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF8A00),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 44),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                icon: const Icon(Icons.replay_rounded),
+                label: const Text("تلاش دوباره با همین آهنگ 🔁", style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _retrySamePuzzleAndAudio();
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // گزینه ۲: همان پازل با یک آهنگ دیگر (فرصت بیشتر)
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2196F3),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 44),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                icon: const Icon(Icons.music_note_rounded),
+                label: const Text("همین پازل با آهنگ جدید 🎵", style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _retrySamePuzzleWithNewAudio();
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // گزینه ۳: پازل و آهنگ کاملاً جدید
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF9C27B0),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 44),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                icon: const Icon(Icons.shuffle_rounded),
+                label: const Text("پازل و آهنگ کاملاً جدید 🎲", style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _prepareLevel();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+  }
+
+  /// ریست قطعات و پخش مجدد همان آهنگ
+  void _retrySamePuzzleAndAudio() {
+    setState(() {
+      for (var p in _correctGrid) {
+        p.isPlaced = false;
+      }
+      _shuffledPieces = List.from(_correctGrid)..shuffle();
+      _status = GameStatus.playing;
+    });
+
+    if (_currentMusicPath != null) {
+      _audioPlayer.play(DeviceFileSource(_currentMusicPath!));
+    }
+  }
+
+  /// نگه داشتن همان قطعات ولی دریافت و پخش آهنگ جدید
+  Future<void> _retrySamePuzzleWithNewAudio() async {
+    setState(() => _status = GameStatus.loading);
+    try {
+      final newMusicPath = await AssetManager.fetchRandomMusic(_currentLevel);
+      _currentMusicPath = newMusicPath;
+
+      await _audioPlayer.setSource(DeviceFileSource(newMusicPath));
+
+      setState(() {
+        for (var p in _correctGrid) {
+          p.isPlaced = false;
+        }
+        _shuffledPieces = List.from(_correctGrid)..shuffle();
+        _status = GameStatus.playing;
+      });
+
+      _audioPlayer.resume();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('خطا در دریافت آهنگ جدید! با همان آهنگ قبلی امتحان می‌کنیم.')),
+      );
+      _retrySamePuzzleAndAudio();
+    }
   }
 
   void _onLevelCompleted() async {
@@ -109,7 +246,11 @@ class _GameScreenState extends State<GameScreen> {
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         backgroundColor: const Color(0xFFFFF9E6),
-        title: Text(title, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF6B4226))),
+        title: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF6B4226)),
+        ),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
           ElevatedButton(
@@ -142,8 +283,10 @@ class _GameScreenState extends State<GameScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF7BD5F5),
         elevation: 0,
-        title: Text('${widget.playerName} | مرحله $_currentLevel (${_targetPiecesCount} قطعه)',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(
+          '${widget.playerName} | مرحله $_currentLevel (${_targetPiecesCount} قطعه)',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -199,8 +342,14 @@ class _GameScreenState extends State<GameScreen> {
                                       border: Border.all(color: Colors.black12, style: BorderStyle.solid),
                                     ),
                                     child: Center(
-                                      child: Text('${index + 1}',
-                                          style: const TextStyle(color: Colors.black26, fontSize: 22, fontWeight: FontWeight.bold)),
+                                      child: Text(
+                                        '${index + 1}',
+                                        style: const TextStyle(
+                                          color: Colors.black26,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   );
                                 },
