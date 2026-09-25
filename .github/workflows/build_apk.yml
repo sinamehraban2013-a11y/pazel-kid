@@ -1,37 +1,46 @@
 name: Build Flutter APK
 
 on:
-  workflow_dispatch: # به شما اجازه می‌دهد با یک دکمه دستی فرآیند ساخت را شروع کنید
+  workflow_dispatch:
 
 jobs:
-    build:
-      runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-      steps:
-        - name: Checkout repository
-          uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-        - name: Set up Java
-          uses: actions/setup-java@v3
-          with:
-            distribution: 'zulu'
-            java-version: '17'
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
 
-        - name: Set up Flutter
-          uses: subosito/flutter-action@v2
-          with:
-            flutter-version: '3.19.x'
-            channel: 'stable'
-            cache: true
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.6'
+          channel: 'stable'
+          cache: true
 
-        - name: Install dependencies
-          run: flutter pub get
+      # این دستور کل ساختار استاندارد اندروید را خودکار و بی‌نقص بازسازی می‌کند
+      - name: Recreate Android Project Skeleton
+        run: |
+          flutter create . --org com.example --project-name puzzle_kids_game --platforms=android
 
-        - name: Build APK
-          run: flutter build apk --release
+      - name: Add Internet Permission to Manifest
+        run: |
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"\/>' android/app/src/main/AndroidManifest.xml
 
-        - name: Upload APK Artifact
-          uses: actions/upload-artifact@v4
-          with:
-            name: puzzle-app-apk
-            path: build/app/outputs/flutter-apk/app-release.apk
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: puzzle-app-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
