@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'player_service.dart';
-import 'game_screen.dart';
+// ۱. ایمپورت صفحه انتخاب مراحل به جای ورود مستقیم به بازی
+import 'level_selection_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({Key? key}) : super(key: key);
@@ -23,9 +24,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       await PlayerService.saveProfile(name, age);
 
       if (!mounted) return;
+
+      // ۲. تغییر این بخش: هدایت به صفحه انتخاب مرحله
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => GameScreen(playerName: name, initialLevel: 1)),
+        MaterialPageRoute(
+          builder: (_) => LevelSelectionScreen(playerName: name),
+        ),
       );
     }
   }
@@ -39,9 +44,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              Text(_step == 1 ? 'سلام قهرمان! اسمت چیه؟ 🎈' : 'چند سالته دوست من؟ 🎂',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF6B4226))),
+              Text(
+                _step == 1 ? 'سلام قهرمان! اسمت چیه؟ 🎈' : 'چند سالته دوست من؟ 🎂',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF6B4226)),
+              ),
               const SizedBox(height: 24),
               TextField(
                 controller: _step == 1 ? _nameController : _ageController,
@@ -64,8 +71,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 onPressed: _next,
-                child: Text(_step == 1 ? 'مرحله بعد ➡️' : 'ورود به دنیای بازی 🌟',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: Text(
+                  _step == 1 ? 'مرحله بعد ➡️' : 'ورود به دنیای بازی 🌟',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
