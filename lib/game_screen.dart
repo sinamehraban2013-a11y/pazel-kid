@@ -1,268 +1,253 @@
+import 'dart:async';
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'player_service.dart';
-import 'puzzle_helper.dart';
+import 'package:flutter/material.dart';
 import 'asset_manager.dart';
+import 'puzzle_helper.dart';
 
 class GameScreen extends StatefulWidget {
   final String playerName;
-  final int initialLevel;
 
-  const GameScreen({
-    Key? key,
-    required this.playerName,
-    required this.initialLevel,
-  }) : super(key: key);
+  const GameScreen({Key? key, required this.playerName}) : super(key: key);
 
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
 
-enum GameStatus { loading, readyToStart, playing, won, lost }
-
 class _GameScreenState extends State<GameScreen> {
-  late int _currentLevel;
-  GameStatus _status = GameStatus.loading;
+  int currentLevel = 1;
+  int rows = 2;
+  int cols = 2;
+  int totalPieces = 4;
+
+  bool isLoading = true;
+  String loadingStatus = "در حال آماده‌سازی...";
+  double downloadProgress = 0.0;
+
+  Uint8List? currentImageBytes;
+  String? currentAudioPath;
+
+  List<PuzzlePieceData> remainingPieces = [];
+  List<PuzzlePieceData?> placedPieces = [];
 
   final AudioPlayer _audioPlayer = AudioPlayer();
-  List<PuzzlePieceData> _correctGrid = [];
-  List<PuzzlePieceData> _shuffledPieces = [];
-  int _targetPiecesCount = 4;
-
-  // نگهداری داده‌های پازل و صوت جاری برای استفاده در تلاش مجدد
-  Uint8List? _currentImageBytes;
-  String? _currentMusicPath;
+  StreamSubscription? _playerCompleteSubscription;
+  bool _isLevelComplete = false;
+  bool _dialogShown = false;
 
   @override
   void initState() {
     super.initState();
-    _currentLevel = widget.initialLevel;
-    _prepareLevel();
     _setupAudioListener();
+    _startLevel(currentLevel);
+  }
+
+  void _setupGridDimensions(int level) {
+    switch (level) {
+      case 1:
+        rows = 2;
+        cols = 2; // 4 قطعه
+        break;
+      case 2:
+        rows = 4;
+        cols = 4; // 6 قطعه
+        break;
+      case 3:
+        rows = 6;
+        cols = 6; // 8 قطعه
+        break;
+      case 4:
+        rows = 8;
+        cols = 8; // 9 قطعه
+        break;
+      case 5:
+        rows = 10;
+        cols = 10; // 12 قطعه
+        break;
+      case 6:
+      default:
+        rows = 12;
+        cols = 12; // 16 قطعه
+        break;
+    }
+    totalPieces = rows * cols;
   }
 
   void _setupAudioListener() {
-    _audioPlayer.onPlayerComplete.listen((_) {
-      if (_status == GameStatus.playing) {
-        _onTimeFinished();
+    _playerCompleteSubscription = _audioPlayer.onPlayerComplete.listen((event) {
+      if (!_isLevelComplete && !_dialogShown && mounted) {
+        _showGameOverDialog();
       }
     });
   }
 
-  Future<void> _prepareLevel() async {
-    setState(() => _status = GameStatus.loading);
-    _targetPiecesCount = 4 + ((_currentLevel - 1) * 2);
+  Future<void> _startLevel(int level, {bool reuseAudio = false, bool reuseImage = false}) async {
+    setState(() {
+      isLoading = true;
+      downloadProgress = 0.0;
+      _isLevelComplete = false;
+      _dialogShown = false;
+      currentLevel = level;
+      _setupGridDimensions(level);
+      placedPieces = List<PuzzlePieceData?>.filled(totalPieces, null);
+      remainingPieces = [];
+    });
 
     try {
-      final imgBytes = await AssetManager.fetchRandomImage(_currentLevel);
-      final musicPath = await AssetManager.fetchRandomMusic(_currentLevel);
+      await _audioPlayer.stop();
 
-      _currentImageBytes = imgBytes;
-      _currentMusicPath = musicPath;
-
-      final pieces = await PuzzleHelper.splitImage(imgBytes, _targetPiecesCount);
-      _correctGrid = List.from(pieces);
-
-      _shuffledPieces = List.from(pieces)..shuffle();
-      for (var p in _shuffledPieces) {
-        p.isPlaced = false;
+      // ۱. دانلود تصویر (در صورت عدم استفاده مجدد)
+      if (!reuseImage || currentImageBytes == null) {
+        setState(() => loadingStatus = "در حال دریافت تصویر پازل...");
+        currentImageBytes = await AssetManager.fetchRandomImage(
+          onProgress: (received, total) {
+            if (total > 0 && mounted) {
+              setState(() => downloadProgress = (received / total) * 0.5);
+            }
+          },
+        );
       }
 
-      await _audioPlayer.setSource(DeviceFileSource(musicPath));
+      // ۲. دانلود صوت (در صورت عدم استفاده مجدد)
+      if (!reuseAudio || currentAudioPath == null) {
+        setState(() => loadingStatus = "در حال دریافت نوای صوتی...");
+        currentAudioPath = await AssetManager.fetchRandomMusic(
+          onProgress: (received, total) {
+            if (total > 0 && mounted) {
+              setState(() => downloadProgress = 0.5 + ((received / total) * 0.5));
+            }
+          },
+        );
+      }
 
-      setState(() => _status = GameStatus.readyToStart);
+      setState(() => loadingStatus = "آماده‌سازی قطعات پازل...");
+
+      // ۳. برش تصویر
+      final pieces = PuzzleHelper.splitImage(
+        inputBytes: currentImageBytes!,
+        rows: rows,
+        cols: cols,
+      );
+
+      pieces.shuffle();
+
+      setState(() {
+        remainingPieces = pieces;
+        isLoading = false;
+      });
+
+      // ۴. شروع پخش صوت
+      if (currentAudioPath != null) {
+        await _audioPlayer.play(DeviceFileSource(currentAudioPath!));
+      }
     } catch (e) {
+      if (mounted) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("خطا در بارگذاری مرحله: $e", textDirection: TextDirection.rtl),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  void _onPiecePlaced(int targetIndex, PuzzlePieceData piece) {
+    if (piece.index == targetIndex) {
+      setState(() {
+        placedPieces[targetIndex] = piece;
+        remainingPieces.removeWhere((p) => p.index == piece.index);
+      });
+
+      // بررسی اتمام پازل
+      if (!placedPieces.contains(null)) {
+        _isLevelComplete = true;
+        _audioPlayer.stop();
+        _showSuccessDialog();
+      }
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('خطا در بارگذاری اطلاعات مرحله! لطفاً اینترنت را بررسی کنید.')),
+        const SnackBar(
+          content: Text("جای این قطعه اینجا نیست، دوباره دقت کن!", textDirection: TextDirection.rtl),
+          duration: Duration(milliseconds: 900),
+          backgroundColor: Colors.orange,
+        ),
       );
     }
   }
 
-  void _startLevel() {
-    setState(() => _status = GameStatus.playing);
-    _audioPlayer.resume();
-  }
-
-  void _onTimeFinished() {
-    _audioPlayer.stop();
-    setState(() => _status = GameStatus.lost);
-    _showGameOverDialog();
-  }
-
-  /// دیالوگ سه گزینه‌ای هنگام تمام شدن زمان/آهنگ
   void _showGameOverDialog() {
+    _dialogShown = true;
     showDialog(
-      barrierDismissible: false,
       context: context,
-      builder: (_) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          backgroundColor: const Color(0xFFFFF9E6),
-          title: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.sentiment_dissatisfied, color: Color(0xFFFF8A00), size: 30),
-              SizedBox(width: 8),
-              Text(
-                "عزیزم نیاز به تلاش بیشتر داری 🌱",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 17,
-                  color: Color(0xFF6B4226),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "آهنگ تموم شد! چطور ادامه بدیم؟",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Color(0xFF4A4A4A)),
-              ),
-              const SizedBox(height: 18),
-
-              // گزینه ۱: تکرار همین پازل و همین آهنگ
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF8A00),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 44),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                icon: const Icon(Icons.replay_rounded),
-                label: const Text("تلاش دوباره با همین آهنگ 🔁", style: TextStyle(fontWeight: FontWeight.bold)),
-                onPressed: () {
-                  Navigator.pop(context);
-                  _retrySamePuzzleAndAudio();
-                },
-              ),
-              const SizedBox(height: 10),
-
-              // گزینه ۲: همان پازل با یک آهنگ دیگر (فرصت بیشتر)
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2196F3),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 44),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                icon: const Icon(Icons.music_note_rounded),
-                label: const Text("همین پازل با آهنگ جدید 🎵", style: TextStyle(fontWeight: FontWeight.bold)),
-                onPressed: () async {
-                  Navigator.pop(context);
-                  await _retrySamePuzzleWithNewAudio();
-                },
-              ),
-              const SizedBox(height: 10),
-
-              // گزینه ۳: پازل و آهنگ کاملاً جدید
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF9C27B0),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 44),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                icon: const Icon(Icons.shuffle_rounded),
-                label: const Text("پازل و آهنگ کاملاً جدید 🎲", style: TextStyle(fontWeight: FontWeight.bold)),
-                onPressed: () {
-                  Navigator.pop(context);
-                  _prepareLevel();
-                },
-              ),
-            ],
-          ),
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("زمان آهنگ به پایان رسید! ⏳", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text(
+          "هنوز پازل کامل نشده است. کدام حالت را برای ادامه انتخاب می‌کنی؟",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontFamily: 'Vazirmatn'),
         ),
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowButtonSpacing: 10,
+        actions: [
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
+            icon: const Icon(Icons.replay),
+            label: const Text("۱. تکرار همین پازل و همین آهنگ"),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _startLevel(currentLevel, reuseAudio: true, reuseImage: true);
+            },
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
+            icon: const Icon(Icons.music_note),
+            label: const Text("۲. همین پازل با آهنگ جدید (زمان بیشتر)"),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _startLevel(currentLevel, reuseAudio: false, reuseImage: true);
+            },
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrangeAccent, foregroundColor: Colors.white),
+            icon: const Icon(Icons.refresh),
+            label: const Text("۳. پازل جدید و آهنگ جدید"),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _startLevel(currentLevel, reuseAudio: false, reuseImage: false);
+            },
+          ),
+        ],
       ),
     );
   }
 
-  /// ریست قطعات و پخش مجدد همان آهنگ
-  void _retrySamePuzzleAndAudio() {
-    setState(() {
-      for (var p in _correctGrid) {
-        p.isPlaced = false;
-      }
-      _shuffledPieces = List.from(_correctGrid)..shuffle();
-      _status = GameStatus.playing;
-    });
-
-    if (_currentMusicPath != null) {
-      _audioPlayer.play(DeviceFileSource(_currentMusicPath!));
-    }
-  }
-
-  /// نگه داشتن همان قطعات ولی دریافت و پخش آهنگ جدید
-  Future<void> _retrySamePuzzleWithNewAudio() async {
-    setState(() => _status = GameStatus.loading);
-    try {
-      final newMusicPath = await AssetManager.fetchRandomMusic(_currentLevel);
-      _currentMusicPath = newMusicPath;
-
-      await _audioPlayer.setSource(DeviceFileSource(newMusicPath));
-
-      setState(() {
-        for (var p in _correctGrid) {
-          p.isPlaced = false;
-        }
-        _shuffledPieces = List.from(_correctGrid)..shuffle();
-        _status = GameStatus.playing;
-      });
-
-      _audioPlayer.resume();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('خطا در دریافت آهنگ جدید! با همان آهنگ قبلی امتحان می‌کنیم.')),
-      );
-      _retrySamePuzzleAndAudio();
-    }
-  }
-
-  void _onLevelCompleted() async {
-    await _audioPlayer.stop();
-    setState(() => _status = GameStatus.won);
-    _currentLevel++;
-    await PlayerService.updateLevel(_currentLevel);
-
-    _showOutcomeDialog(
-      title: "آفرین عزیز جان، یک چالش جدید خواهی داشت ⭐",
-      buttonText: "مرحله بعدی 🚀",
-      onPressed: () {
-        Navigator.pop(context);
-        _prepareLevel();
-      },
-    );
-  }
-
-  void _showOutcomeDialog({required String title, required String buttonText, required VoidCallback onPressed}) {
+  void _showSuccessDialog() {
     showDialog(
-      barrierDismissible: false,
       context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: const Color(0xFFFFF9E6),
-        title: Text(
-          title,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("آفرین قهرمان! 🎉", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+        content: Text(
+          "مرحله $currentLevel را با موفقیت حل کردی!",
           textAlign: TextAlign.center,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF6B4226)),
+          style: const TextStyle(fontSize: 16),
         ),
-        actionsAlignment: MainAxisAlignment.center,
         actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF8A00),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12)),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _startLevel(currentLevel + 1);
+              },
+              child: const Text("رفتن به مرحله بعد 🚀", style: TextStyle(fontSize: 16)),
             ),
-            onPressed: onPressed,
-            child: Text(buttonText, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ),
+          )
         ],
       ),
     );
@@ -270,187 +255,167 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
+    _playerCompleteSubscription?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final (rows, cols) = PuzzleHelper.getGridDimensions(_targetPiecesCount);
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F8FF),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF7BD5F5),
-        elevation: 0,
-        title: Text(
-          '${widget.playerName} | مرحله $_currentLevel (${_targetPiecesCount} قطعه)',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        title: Text("مرحله $currentLevel ($totalPieces تکه) - بازیکن: ${widget.playerName}"),
         centerTitle: true,
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
       ),
-      body: SafeArea(
-        child: _status == GameStatus.loading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF8A00)))
-            : _status == GameStatus.readyToStart
-                ? _buildInstructionView()
-                : Column(
-                    children: [
-                      // نیمه بالایی: بستر قرارگیری صحیح قطعات
-                      Expanded(
-                        flex: 1,
-                        child: Container(
-                          margin: const EdgeInsets.all(12),
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)],
-                          ),
-                          child: GridView.builder(
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: cols,
-                              childAspectRatio: 1.0,
-                              crossAxisSpacing: 4,
-                              mainAxisSpacing: 4,
-                            ),
-                            itemCount: _correctGrid.length,
-                            itemBuilder: (context, index) {
-                              final targetPiece = _correctGrid[index];
-                              return DragTarget<PuzzlePieceData>(
-                                onWillAccept: (incoming) => incoming?.index == targetPiece.index,
-                                onAccept: (incoming) {
-                                  setState(() {
-                                    targetPiece.isPlaced = true;
-                                    if (_correctGrid.every((p) => p.isPlaced)) {
-                                      _onLevelCompleted();
-                                    }
-                                  });
-                                },
-                                builder: (context, candidateData, rejectedData) {
-                                  if (targetPiece.isPlaced) {
-                                    return ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.memory(targetPiece.imageBytes, fit: BoxFit.cover),
-                                    );
-                                  }
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      color: candidateData.isNotEmpty ? const Color(0xFFB4F8C8) : const Color(0xFFE8ECEF),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.black12, style: BorderStyle.solid),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        '${index + 1}',
-                                        style: const TextStyle(
-                                          color: Colors.black26,
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+      body: isLoading
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(loadingStatus, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 20),
+                    LinearProgressIndicator(
+                      value: downloadProgress > 0 ? downloadProgress : null,
+                      backgroundColor: Colors.grey.shade300,
+                      color: Colors.deepPurple,
+                      minHeight: 10,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "${(downloadProgress * 100).toInt()}%",
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.deepPurple),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : Column(
+              children: [
+                // بخش بالایی: صفحه مقصد پازل (با امکان زوم دو انگشتی)
+                Expanded(
+                  flex: 5,
+                  child: Container(
+                    margin: const EdgeInsets.all(8.0),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.deepPurple.shade200, width: 2),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: InteractiveViewer(
+                        panEnabled: true,
+                        minScale: 0.8,
+                        maxScale: 3.0,
+                        child: Center(
+                          child: AspectRatio(
+                            aspectRatio: cols / rows,
+                            child: GridView.builder(
+                              physics: const NeverScrollableScrollPhysics(),
+                              padding: const EdgeInsets.all(4),
+                              itemCount: totalPieces,
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: cols,
+                                childAspectRatio: 1.0,
+                                crossAxisSpacing: 2,
+                                mainAxisSpacing: 2,
+                              ),
+                              itemBuilder: (context, index) {
+                                final piece = placedPieces[index];
+                                return DragTarget<PuzzlePieceData>(
+                                  onWillAcceptWithDetails: (details) => placedPieces[index] == null,
+                                  onAcceptWithDetails: (details) => _onPiecePlaced(index, details.data),
+                                  builder: (context, candidateData, rejectedData) {
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        color: piece != null ? Colors.transparent : Colors.white70,
+                                        border: Border.all(color: Colors.deepPurple.shade100, width: 1),
+                                        borderRadius: BorderRadius.circular(4),
                                       ),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
+                                      child: piece != null
+                                          ? Image.memory(piece.imageBytes, fit: BoxFit.fill)
+                                          : Center(
+                                              child: Text(
+                                                "${index + 1}",
+                                                style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ),
-                      const Divider(thickness: 2, color: Color(0xFF7BD5F5)),
-                      // نیمه پایینی: قطعات غیرمرتب برای کشیدن
-                      Expanded(
-                        flex: 1,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: GridView.builder(
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: cols,
-                              childAspectRatio: 1.0,
-                              crossAxisSpacing: 6,
-                              mainAxisSpacing: 6,
-                            ),
-                            itemCount: _shuffledPieces.length,
-                            itemBuilder: (context, index) {
-                              final piece = _shuffledPieces[index];
-                              final isAlreadyPlaced = _correctGrid.firstWhere((p) => p.index == piece.index).isPlaced;
+                    ),
+                  ),
+                ),
 
-                              if (isAlreadyPlaced) {
-                                return const SizedBox.shrink();
-                              }
+                const Divider(height: 2, thickness: 2),
 
-                              return Draggable<PuzzlePieceData>(
-                                data: piece,
-                                feedback: Material(
-                                  elevation: 8,
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: ClipRRect(
+                // بخش پایینی: مخزن قطعات باقی‌مانده (با قابلیت اسکرول و زوم دو انگشتی)
+                Expanded(
+                  flex: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    color: Colors.purple.shade50,
+                    child: remainingPieces.isEmpty
+                        ? const Center(child: Text("همه تکه‌ها چیده شدند! 🎉", style: TextStyle(fontSize: 16, color: Colors.green, fontWeight: FontWeight.bold)))
+                        : InteractiveViewer(
+                            panEnabled: true,
+                            minScale: 0.8,
+                            maxScale: 2.5,
+                            child: GridView.builder(
+                              itemCount: remainingPieces.length,
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: cols > 3 ? cols : 3,
+                                childAspectRatio: 1.0,
+                                crossAxisSpacing: 6,
+                                mainAxisSpacing: 6,
+                              ),
+                              itemBuilder: (context, index) {
+                                final piece = remainingPieces[index];
+                                return Draggable<PuzzlePieceData>(
+                                  data: piece,
+                                  feedback: Material(
+                                    elevation: 8,
                                     borderRadius: BorderRadius.circular(8),
                                     child: SizedBox(
-                                      width: 100,
-                                      height: 100,
-                                      child: Image.memory(piece.imageBytes, fit: BoxFit.cover),
+                                      width: 90,
+                                      height: 90,
+                                      child: Image.memory(piece.imageBytes, fit: BoxFit.fill),
                                     ),
                                   ),
-                                ),
-                                childWhenDragging: Opacity(
-                                  opacity: 0.3,
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.memory(piece.imageBytes, fit: BoxFit.cover),
+                                  childWhenDragging: Opacity(
+                                    opacity: 0.3,
+                                    child: Image.memory(piece.imageBytes, fit: BoxFit.fill),
                                   ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.memory(piece.imageBytes, fit: BoxFit.cover),
-                                ),
-                              );
-                            },
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(6),
+                                      boxShadow: [
+                                        BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 4, offset: const Offset(0, 2))
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Image.memory(piece.imageBytes, fit: BoxFit.fill),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
                   ),
-      ),
-    );
-  }
-
-  Widget _buildInstructionView() {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.all(24),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15)],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.music_note_rounded, size: 70, color: Color(0xFFFF8A00)),
-            const SizedBox(height: 16),
-            const Text(
-              'دوست عزیزم تا پایان پخش این قطعه موسیقی فرصت داری تا قطعه های پازل را از نیمه پایین تصویر برداشته و در نیمه بالایی تصویر به صورت مرتب بچینی، اگر حاضری روی دکمه شروع کلیک کن',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, height: 1.6, fontWeight: FontWeight.w600, color: Color(0xFF4A4A4A)),
+                ),
+              ],
             ),
-            const SizedBox(height: 28),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4CAF50),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                elevation: 5,
-              ),
-              onPressed: _startLevel,
-              child: const Text('شروع بازی 🎮', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
