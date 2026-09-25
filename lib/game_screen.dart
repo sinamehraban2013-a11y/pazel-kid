@@ -165,7 +165,7 @@ class _GameScreenState extends State<GameScreen> {
                             boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)],
                           ),
                           child: GridView.builder(
-                            physics: const NeverScrollableScrollException(),
+                            physics: const NeverScrollableScrollPhysics(),
                             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: cols,
                               childAspectRatio: 1.0,
