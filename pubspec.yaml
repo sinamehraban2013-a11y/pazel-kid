@@ -17,6 +17,7 @@ dependencies:
   google_fonts: ^6.1.0
   confetti: ^0.7.0
   wakelock_plus: ^1.2.8
+  package_info_plus: ^8.1.0
 
 flutter:
   uses-material-design: true
