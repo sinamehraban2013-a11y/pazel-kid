@@ -1,0 +1,21 @@
+name: puzzle_kids_game
+description: A fun puzzle game for kids.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.2.2
+  dio: ^5.4.0
+  path_provider: ^2.1.2
+  image: ^4.1.7
+  audioplayers: ^6.0.0
+  google_fonts: ^6.1.0
+  confetti: ^0.7.0
+
+flutter:
+  uses-material-design: true
