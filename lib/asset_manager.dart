@@ -5,18 +5,19 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
+typedef ProgressCallback = void Function(int received, int total);
+
 class AssetManager {
   static const String scriptBaseUrl =
       "https://script.google.com/macros/s/AKfycbwBLyDbJu78M_nxaZtfcfFtd6DSMp6yl3Lu2lPOPwimuDynqGN8cTvZr4JpN3eJhxGA/exec";
 
-  // شناسه‌های دقیق پوشه‌های گوگل درایو
   static const String imageFolderId = "1CHlj2vLFuc-JjHAKREjcQ-YfZVO3ueBh";
   static const String audioFolderId = "1tFPotXvU0NxyR8Jqsh8SPI3DZakKps08";
 
   static final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 20),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: const Duration(seconds: 25),
+      receiveTimeout: const Duration(seconds: 40),
       followRedirects: true,
       maxRedirects: 10,
       validateStatus: (status) => status != null && status < 500,
@@ -68,7 +69,6 @@ class AssetManager {
       }
       return [];
     } catch (e) {
-      print("خطا در دریافت لیست پوشه: $e");
       return [];
     }
   }
@@ -87,66 +87,12 @@ class AssetManager {
     }
   }
 
-  /// دریافت یک عکس و یک آهنگ تصادفی
-  static Future<Map<String, String>?> getLevelAssets() async {
-    try {
-      if (cachedImageUrls.isEmpty || cachedAudioUrls.isEmpty) {
-        bool loaded = await preloadFileList();
-        if (!loaded) return null;
-      }
-
-      final random = Random();
-      final String selectedImageUrl = cachedImageUrls[random.nextInt(cachedImageUrls.length)];
-      final String selectedAudioUrl = cachedAudioUrls[random.nextInt(cachedAudioUrls.length)];
-
-      final dir = await getTemporaryDirectory();
-      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String localImagePath = "${dir.path}/puzzle_img_$timestamp.jpg";
-      final String localAudioPath = "${dir.path}/puzzle_aud_$timestamp.mp3";
-
-      await Future.wait([
-        _dio.download(selectedImageUrl, localImagePath, options: Options(responseType: ResponseType.bytes)),
-        _dio.download(selectedAudioUrl, localAudioPath, options: Options(responseType: ResponseType.bytes)),
-      ]);
-
-      if (await File(localImagePath).exists() && await File(localAudioPath).exists()) {
-        return {'image': localImagePath, 'audio': localAudioPath};
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /// فقط دانلود یک آهنگ جدید (برای حالت «زمان بیشتر»)
-  static Future<String?> getRandomAudioOnly() async {
-    try {
-      if (cachedAudioUrls.isEmpty) {
-        bool loaded = await preloadFileList();
-        if (!loaded) return null;
-      }
-      final random = Random();
-      final String selectedAudioUrl = cachedAudioUrls[random.nextInt(cachedAudioUrls.length)];
-      final dir = await getTemporaryDirectory();
-      final String localAudioPath = "${dir.path}/puzzle_aud_${DateTime.now().millisecondsSinceEpoch}.mp3";
-
-      await _dio.download(selectedAudioUrl, localAudioPath, options: Options(responseType: ResponseType.bytes));
-      if (await File(localAudioPath).exists()) {
-        return localAudioPath;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /// متد سازگار با game_screen: دریافت بایت‌های تصویر پازل
-  static Future<Uint8List> fetchRandomImage(int level) async {
+  static Future<Uint8List> fetchRandomImage({ProgressCallback? onProgress}) async {
     if (cachedImageUrls.isEmpty) {
       cachedImageUrls = await _fetchFolderFileUrls(imageFolderId, 'image');
     }
     if (cachedImageUrls.isEmpty) {
-      throw Exception('پوشه تصاویر خالی است یا دسترسی ممکن نیست.');
+      throw Exception('لیست تصاویر دریافت نشد');
     }
 
     final random = Random();
@@ -155,20 +101,38 @@ class AssetManager {
     final response = await _dio.get<List<int>>(
       selectedImageUrl,
       options: Options(responseType: ResponseType.bytes),
+      onReceiveProgress: onProgress,
     );
 
     if (response.statusCode == 200 && response.data != null) {
       return Uint8List.fromList(response.data!);
     }
-    throw Exception('خطا در بارگذاری بایت‌های تصویر پازل');
+    throw Exception('خطا در دریافت فایل تصویر');
   }
 
-  /// متد سازگار با game_screen: دریافت مسیر فایل صوتی دانلود شده
-  static Future<String> fetchRandomMusic(int level) async {
-    final audioPath = await getRandomAudioOnly();
-    if (audioPath != null) {
-      return audioPath;
+  static Future<String> fetchRandomMusic({ProgressCallback? onProgress}) async {
+    if (cachedAudioUrls.isEmpty) {
+      cachedAudioUrls = await _fetchFolderFileUrls(audioFolderId, 'audio');
     }
-    throw Exception('خطا در دریافت و ذخیره فایل صوتی');
+    if (cachedAudioUrls.isEmpty) {
+      throw Exception('لیست فایل‌های صوتی دریافت نشد');
+    }
+
+    final random = Random();
+    final String selectedAudioUrl = cachedAudioUrls[random.nextInt(cachedAudioUrls.length)];
+    final dir = await getTemporaryDirectory();
+    final String localAudioPath = "${dir.path}/puzzle_aud_${DateTime.now().millisecondsSinceEpoch}.mp3";
+
+    await _dio.download(
+      selectedAudioUrl,
+      localAudioPath,
+      options: Options(responseType: ResponseType.bytes),
+      onReceiveProgress: onProgress,
+    );
+
+    if (await File(localAudioPath).exists()) {
+      return localAudioPath;
+    }
+    throw Exception('خطا در ذخیره‌سازی فایل صوتی');
   }
 }
