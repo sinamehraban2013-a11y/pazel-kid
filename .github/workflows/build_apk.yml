@@ -12,7 +12,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -20,22 +20,20 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'
+          flutter-version: '3.24.3'
           channel: 'stable'
           cache: true
+
+      - name: Fix Android SDK Platforms
+        run: |
+          rm -rf /usr/local/lib/android/sdk/platforms/android-35 || true
 
       - name: Recreate Clean Android Structure
         run: |
           rm -rf android
           flutter create . --org com.example --project-name puzzle_kids_game --platforms=android
 
-      # این بخش SDK را مجبور می‌کند از نسخه 34 استفاده کند تا خطای 35 برطرف شود
-      - name: Force Android SDK 34
-        run: |
-          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
-          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/g' android/app/build.gradle
-
-      - name: Add Internet Permission
+      - name: Add Internet Permission to Manifest
         run: |
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"\/>' android/app/src/main/AndroidManifest.xml
 
