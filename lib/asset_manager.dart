@@ -16,8 +16,8 @@ class AssetManager {
 
   static final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 25),
-      receiveTimeout: const Duration(seconds: 40),
+      connectTimeout: const Duration(seconds: 45),
+      receiveTimeout: const Duration(seconds: 60),
       followRedirects: true,
       maxRedirects: 10,
       validateStatus: (status) => status != null && status < 500,
@@ -88,51 +88,69 @@ class AssetManager {
   }
 
   static Future<Uint8List> fetchRandomImage({ProgressCallback? onProgress}) async {
-    if (cachedImageUrls.isEmpty) {
-      cachedImageUrls = await _fetchFolderFileUrls(imageFolderId, 'image');
-    }
-    if (cachedImageUrls.isEmpty) {
-      throw Exception('فهرست تصاویر در دسترس نیست');
-    }
+    int attempts = 0;
+    while (attempts < 2) {
+      try {
+        attempts++;
+        if (cachedImageUrls.isEmpty) {
+          cachedImageUrls = await _fetchFolderFileUrls(imageFolderId, 'image');
+        }
+        if (cachedImageUrls.isEmpty) {
+          throw Exception('فهرست تصاویر دریافت نشد');
+        }
 
-    final random = Random();
-    final String selectedImageUrl = cachedImageUrls[random.nextInt(cachedImageUrls.length)];
+        final random = Random();
+        final String selectedImageUrl = cachedImageUrls[random.nextInt(cachedImageUrls.length)];
 
-    final response = await _dio.get<List<int>>(
-      selectedImageUrl,
-      options: Options(responseType: ResponseType.bytes),
-      onReceiveProgress: onProgress,
-    );
+        final response = await _dio.get<List<int>>(
+          selectedImageUrl,
+          options: Options(responseType: ResponseType.bytes),
+          onReceiveProgress: onProgress,
+        );
 
-    if (response.statusCode == 200 && response.data != null) {
-      return Uint8List.fromList(response.data!);
+        if (response.statusCode == 200 && response.data != null) {
+          return Uint8List.fromList(response.data!);
+        }
+      } catch (e) {
+        if (attempts >= 2) rethrow;
+        await Future.delayed(const Duration(seconds: 2));
+      }
     }
-    throw Exception('خطا در دریافت تصویر');
+    throw Exception('خطا در بارگیری تصویر پس از تلاش مجدد');
   }
 
   static Future<String> fetchRandomMusic({ProgressCallback? onProgress}) async {
-    if (cachedAudioUrls.isEmpty) {
-      cachedAudioUrls = await _fetchFolderFileUrls(audioFolderId, 'audio');
-    }
-    if (cachedAudioUrls.isEmpty) {
-      throw Exception('فهرست اصوات در دسترس نیست');
-    }
+    int attempts = 0;
+    while (attempts < 2) {
+      try {
+        attempts++;
+        if (cachedAudioUrls.isEmpty) {
+          cachedAudioUrls = await _fetchFolderFileUrls(audioFolderId, 'audio');
+        }
+        if (cachedAudioUrls.isEmpty) {
+          throw Exception('فهرست صوت‌ها دریافت نشد');
+        }
 
-    final random = Random();
-    final String selectedAudioUrl = cachedAudioUrls[random.nextInt(cachedAudioUrls.length)];
-    final dir = await getTemporaryDirectory();
-    final String localAudioPath = "${dir.path}/puzzle_aud_${DateTime.now().millisecondsSinceEpoch}.mp3";
+        final random = Random();
+        final String selectedAudioUrl = cachedAudioUrls[random.nextInt(cachedAudioUrls.length)];
+        final dir = await getTemporaryDirectory();
+        final String localAudioPath = "${dir.path}/puzzle_aud_${DateTime.now().millisecondsSinceEpoch}.mp3";
 
-    await _dio.download(
-      selectedAudioUrl,
-      localAudioPath,
-      options: Options(responseType: ResponseType.bytes),
-      onReceiveProgress: onProgress,
-    );
+        await _dio.download(
+          selectedAudioUrl,
+          localAudioPath,
+          options: Options(responseType: ResponseType.bytes),
+          onReceiveProgress: onProgress,
+        );
 
-    if (await File(localAudioPath).exists()) {
-      return localAudioPath;
+        if (await File(localAudioPath).exists()) {
+          return localAudioPath;
+        }
+      } catch (e) {
+        if (attempts >= 2) rethrow;
+        await Future.delayed(const Duration(seconds: 2));
+      }
     }
-    throw Exception('خطا در ذخیره‌سازی فایل صوتی');
+    throw Exception('خطا در بارگیری صوت پس از تلاش مجدد');
   }
 }
