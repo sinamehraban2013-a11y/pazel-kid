@@ -7,15 +7,20 @@ import 'puzzle_helper.dart';
 
 class GameScreen extends StatefulWidget {
   final String playerName;
+  final int initialLevel;
 
-  const GameScreen({Key? key, required this.playerName}) : super(key: key);
+  const GameScreen({
+    Key? key,
+    required this.playerName,
+    this.initialLevel = 1,
+  }) : super(key: key);
 
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
 
 class _GameScreenState extends State<GameScreen> {
-  int currentLevel = 1;
+  late int currentLevel;
   int rows = 2;
   int cols = 2;
   int totalPieces = 4;
@@ -39,6 +44,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
+    currentLevel = widget.initialLevel;
     _setupAudioListener();
     _startLevel(currentLevel);
   }
@@ -367,7 +373,7 @@ class _GameScreenState extends State<GameScreen> {
 
                 const Divider(height: 1, thickness: 1.5),
 
-                // مخزن قطعات در پایین: بدون تداخل لمسی، روان و ریسپانسیو
+                // مخزن قطعات در پایین: روان و بدون تداخل
                 Expanded(
                   flex: 4,
                   child: Container(
