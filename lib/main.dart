@@ -1,27 +1,41 @@
 import 'package:flutter/material.dart';
-import 'player_service.dart';
-import 'onboarding_screen.dart';
-import 'game_screen.dart';
+import 'package:flutter/services.dart';
+import 'splash_screen.dart';
 
-void main() async {
+void main() {
+  // اطمینان از مقداردهی اولیه فلاتر
   WidgetsFlutterBinding.ensureInitialized();
-  final profile = await PlayerService.getProfile();
-  runApp(PuzzleApp(profile: profile));
+  
+  // قفل کردن چرخش صفحه روی حالت عمودی برای تجربه کاربری بهتر کودکان
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  runApp(const PuzzleApp());
 }
 
 class PuzzleApp extends StatelessWidget {
-  final Map<String, dynamic>? profile;
-  const PuzzleApp({Key? key, this.profile}) : super(key: key);
+  const PuzzleApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'بازی پازل شاد',
+      title: 'هنر و اندیشه',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(fontFamily: 'Vazirmatn'), // یا فونت دلخواه کودکانه
-      home: profile == null
-          ? const OnboardingScreen()
-          : GameScreen(playerName: profile!['name'], initialLevel: profile!['level']),
+      theme: ThemeData(
+        primarySwatch: Colors.orange,
+        scaffoldBackgroundColor: const Color(0xFFFFF8E7),
+        fontFamily: 'Vazirmatn', // در صورت عدم وجود فونت، از فونت سیستم استفاده می‌شود
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFFF8A00),
+          foregroundColor: Colors.white,
+          centerTitle: true,
+          elevation: 2,
+        ),
+      ),
+      // نقطه شروع برنامه همیشه با صفحه خوش‌آمدگویی ۳ ثانیه‌ای است
+      home: const SplashScreen(),
     );
   }
 }
