@@ -1,24 +1,33 @@
+فایل ارسالی شما به‌طور کامل بررسی شد. تغییرات لازم شامل افزودن پکیج saver_gallery، پیاده‌سازی متدهای ذخیره تصویر و صوت، و افزودن دو دکمه زیر دکمه کارت جایزه در دیالوگ پیروزی است.
+
+این متن کامل و یکجای فایل lib/game_screen.dart است که می‌توانید آن را جایگزین کل محتوای فعلی کنید:
+
+dart
 import 'dart:async';
+import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:confetti/confetti.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:image/image.dart' as img;
+import 'package:saver_gallery/saver_gallery.dart';
+
 import 'asset_manager.dart';
 import 'puzzle_helper.dart';
 import 'reward_service.dart';
 
 class GameScreen extends StatefulWidget {
   final String playerName;
-  final int initialLevel;
+  final int level;
 
   const GameScreen({
     Key? key,
     required this.playerName,
-    int? level,
-    int? initialLevel,
-  })  : initialLevel = initialLevel ?? level ?? 1,
-        super(key: key);
+    required this.level,
+  }) : super(key: key);
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -26,296 +35,254 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late int currentLevel;
-  int rows = 2;
-  int cols = 2;
-  int totalPieces = 4;
+  int gridSize = 3;
 
   bool isLoading = true;
-  bool hasError = false;
-  String errorMessage = "";
-  String loadingStatus = "در حال اتصال و آماده‌سازی...";
-  double? downloadProgress;
-  int downloadedBytes = 0;
+  String loadingMessage = 'در حال آماده‌سازی بازی...';
 
   Uint8List? currentImageBytes;
   String? currentAudioPath;
 
-  List<PuzzlePieceData> remainingPieces = [];
-  List<PuzzlePieceData?> placedPieces = [];
+  List<PuzzlePiece> allPieces = [];
+  List<PuzzlePiece?> boardSlots = [];
+  List<PuzzlePiece> trayPieces = [];
 
   final AudioPlayer _audioPlayer = AudioPlayer();
-  Duration _musicDuration = Duration.zero;
+  Duration _totalDuration = Duration.zero;
   Duration _currentPosition = Duration.zero;
+  StreamSubscription? _posSub;
+  StreamSubscription? _durSub;
+  StreamSubscription? _completeSub;
 
-  StreamSubscription? _playerCompleteSubscription;
-  StreamSubscription? _durationSubscription;
-  StreamSubscription? _positionSubscription;
+  late ConfettiController _confettiController;
 
-  bool _isLevelComplete = false;
-  bool _dialogShown = false;
+  bool _isSolved = false;
+  bool _showPreview = false;
 
   @override
   void initState() {
     super.initState();
-    // فعال‌سازی روشن ماندن دائمی صفحه در حین بازی
+    currentLevel = widget.level;
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 4));
     WakelockPlus.enable();
-
-    currentLevel = widget.initialLevel;
-    _setupAudioListeners();
-    _startLevel(currentLevel);
+    _initLevel();
   }
 
-  void _setupGridDimensions(int level) {
-    int dim = level + 1;
-    if (dim > 10) dim = 10;
-    rows = dim;
-    cols = dim;
-    totalPieces = rows * cols;
+  @override
+  void dispose() {
+    _posSub?.cancel();
+    _durSub?.cancel();
+    _completeSub?.cancel();
+    _audioPlayer.dispose();
+    _confettiController.dispose();
+    WakelockPlus.disable();
+    super.dispose();
   }
 
-  void _setupAudioListeners() {
-    // گوش دادن به اتمام آهنگ
-    _playerCompleteSubscription = _audioPlayer.onPlayerComplete.listen((event) {
-      if (!_isLevelComplete && !_dialogShown && mounted) {
-        _showGameOverDialog();
-      }
-    });
-
-    // دریافت مدت زمان کل آهنگ
-    _durationSubscription = _audioPlayer.onDurationChanged.listen((dur) {
-      if (mounted) {
-        setState(() => _musicDuration = dur);
-      }
-    });
-
-    // دریافت موقعیت زمانی لحظه‌ای جهت به‌روزرسانی تایمر
-    _positionSubscription = _audioPlayer.onPositionChanged.listen((pos) {
-      if (mounted) {
-        setState(() => _currentPosition = pos);
-      }
-    });
+  void _calculateGridSize() {
+    if (currentLevel <= 3) {
+      gridSize = 3;
+    } else if (currentLevel <= 7) {
+      gridSize = 4;
+    } else {
+      gridSize = 5;
+    }
   }
 
-  Future<void> _startLevel(int level, {bool reuseAudio = false, bool reuseImage = false}) async {
+  Future<void> _initLevel() async {
     setState(() {
       isLoading = true;
-      hasError = false;
-      errorMessage = "";
-      downloadProgress = null;
-      downloadedBytes = 0;
-      _isLevelComplete = false;
-      _dialogShown = false;
-      _musicDuration = Duration.zero;
-      _currentPosition = Duration.zero;
-      currentLevel = level;
-      _setupGridDimensions(level);
-      placedPieces = List<PuzzlePieceData?>.filled(totalPieces, null);
-      remainingPieces = [];
+      loadingMessage = 'در حال دریافت تصویر و صوت مرحله $currentLevel...';
+      _isSolved = false;
+      _showPreview = false;
+      boardSlots = [];
+      trayPieces = [];
+      allPieces = [];
     });
+
+    _calculateGridSize();
 
     try {
       await _audioPlayer.stop();
 
-      // ۱. دانلود تصویر پازل
-      if (!reuseImage || currentImageBytes == null) {
-        setState(() => loadingStatus = "در حال دریافت تصویر مرحله...");
-        currentImageBytes = await AssetManager.fetchRandomImage(
-          onProgress: (received, total) {
-            if (mounted) {
-              setState(() {
-                downloadedBytes = received;
-                if (total > 0) {
-                  downloadProgress = (received / total) * 0.5;
-                } else {
-                  downloadProgress = null;
-                }
-              });
-            }
-          },
-        );
+      // ۱. بارگذاری تصویر
+      setState(() {
+        loadingMessage = 'در حال دریافت تصویر جورچین...';
+      });
+      final imgBytes = await AssetManager.fetchRandomImage();
+      if (imgBytes == null) {
+        throw Exception('عدم امکان بارگذاری تصویر جورچین.');
+      }
+      currentImageBytes = imgBytes;
+
+      // ۲. برش قطعات جورچین
+      setState(() {
+        loadingMessage = 'در حال آماده‌سازی و برش قطعات...';
+      });
+      final decodedImage = img.decodeImage(imgBytes);
+      if (decodedImage == null) {
+        throw Exception('خطا در پردازش داده‌های تصویر.');
       }
 
-      // ۲. دانلود صوت
-      if (!reuseAudio || currentAudioPath == null) {
-        setState(() => loadingStatus = "در حال دریافت نوا...");
-        currentAudioPath = await AssetManager.fetchRandomMusic(
-          onProgress: (received, total) {
-            if (mounted) {
-              setState(() {
-                downloadedBytes = received;
-                if (total > 0) {
-                  downloadProgress = 0.5 + ((received / total) * 0.5);
-                } else {
-                  downloadProgress = null;
-                }
-              });
-            }
-          },
-        );
-      }
-
-      setState(() => loadingStatus = "برش و آماده‌سازی قطعات پازل...");
-
-      // ۳. برش تصویر
-      final pieces = PuzzleHelper.splitImage(
-        inputBytes: currentImageBytes!,
-        rows: rows,
-        cols: cols,
+      final pieces = await PuzzleHelper.splitImage(
+        decodedImage: decodedImage,
+        gridSize: gridSize,
       );
 
-      pieces.shuffle();
+      allPieces = List.from(pieces);
+      boardSlots = List<PuzzlePiece?>.filled(gridSize * gridSize, null);
+      trayPieces = List.from(pieces)..shuffle(Random());
+
+      // ۳. بارگذاری و پخش صوت
+      setState(() {
+        loadingMessage = 'در حال بارگذاری صوت مرحله...';
+      });
+      final audioPath = await AssetManager.fetchRandomMusic();
+      currentAudioPath = audioPath;
+
+      if (audioPath != null && File(audioPath).existsSync()) {
+        await _audioPlayer.setSource(DeviceFileSource(audioPath));
+
+        _durSub?.cancel();
+        _durSub = _audioPlayer.onDurationChanged.listen((dur) {
+          if (mounted) setState(() => _totalDuration = dur);
+        });
+
+        _posSub?.cancel();
+        _posSub = _audioPlayer.onPositionChanged.listen((pos) {
+          if (mounted) setState(() => _currentPosition = pos);
+        });
+
+        _completeSub?.cancel();
+        _completeSub = _audioPlayer.onPlayerComplete.listen((_) {
+          _onTimeExpired();
+        });
+
+        await _audioPlayer.resume();
+      }
 
       setState(() {
-        remainingPieces = pieces;
         isLoading = false;
       });
-
-      // ۴. اجرای صوت
-      if (currentAudioPath != null) {
-        await _audioPlayer.play(DeviceFileSource(currentAudioPath!));
-      }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-          hasError = true;
-          errorMessage = "سرعت اینترنت ضعیف است یا اتصال قطع شد.\nلطفاً دوباره امتحان کنید.";
-        });
-      }
-    }
-  }
-
-  void _onPiecePlaced(int targetIndex, PuzzlePieceData piece) {
-    if (piece.index == targetIndex) {
       setState(() {
-        placedPieces[targetIndex] = piece;
-        remainingPieces.removeWhere((p) => p.index == piece.index);
+        isLoading = false;
+        loadingMessage = 'خطایی رخ داد: $e';
       });
-
-      // بررسی تکمیل پازل
-      if (!placedPieces.contains(null)) {
-        _isLevelComplete = true;
-        _audioPlayer.stop();
-        _saveProgressAndShowSuccess();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطا در آماده‌سازی مرحله: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("جای این تکه اینجا نیست، بیشتر دقت کن!", textDirection: TextDirection.rtl),
-          duration: Duration(milliseconds: 600),
-          backgroundColor: Colors.orange,
-        ),
-      );
     }
   }
 
-  Future<void> _saveProgressAndShowSuccess() async {
-    // ذخیره مرحله باز شده جدید
-    final prefs = await SharedPreferences.getInstance();
-    final String key = 'max_unlocked_level_${widget.playerName}';
-    final int currentMax = prefs.getInt(key) ?? 1;
-    if (currentLevel >= currentMax && currentLevel < 10) {
-      await prefs.setInt(key, currentLevel + 1);
-    }
+  void _onTimeExpired() {
+    if (_isSolved || !mounted) return;
 
-    // ثبت کارت جایزه
-    await RewardService.unlockReward(currentLevel);
-
-    // دیالوگ موفقیت
-    _showSuccessDialog();
-  }
-
-  void _showGameOverDialog() {
-    _dialogShown = true;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("زمان آهنگ تمام شد! ⏳", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text(
-          "هنوز پازل کامل نشده است. کدام حالت را برای ادامه انتخاب می‌کنی؟",
-          textAlign: TextAlign.center,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: const Text('پایان زمان مرحله! ⏳'),
+          content: const Text(
+            'زمان پخش صوت به پایان رسید و جورچین تکمیل نشد. تمایل دارید مجدداً تلاش کنید؟',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.pop(context);
+              },
+              child: const Text('خروج به انتخاب مرحله'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _initLevel();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF8A00),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('تلاش دوباره'),
+            ),
+          ],
         ),
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowButtonSpacing: 10,
-        actions: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
-            icon: const Icon(Icons.replay),
-            label: const Text("۱. تکرار همین پازل و همین آهنگ"),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _startLevel(currentLevel, reuseAudio: true, reuseImage: true);
-            },
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
-            icon: const Icon(Icons.music_note),
-            label: const Text("۲. همین پازل با آهنگ جدید"),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _startLevel(currentLevel, reuseAudio: false, reuseImage: true);
-            },
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrangeAccent, foregroundColor: Colors.white),
-            icon: const Icon(Icons.refresh),
-            label: const Text("۳. پازل جدید و آهنگ جدید"),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _startLevel(currentLevel, reuseAudio: false, reuseImage: false);
-            },
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
-            icon: const Icon(Icons.grid_view_rounded),
-            label: const Text("۴. بازگشت به انتخاب مراحل"),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _audioPlayer.stop();
-              Navigator.pop(context);
-            },
-          ),
-        ],
       ),
     );
   }
 
-  void _showImagePreviewHint() {
-    if (currentImageBytes == null) return;
+  void _checkSolution() {
+    for (int i = 0; i < boardSlots.length; i++) {
+      if (boardSlots[i] == null || boardSlots[i]!.correctIndex != i) {
+        return;
+      }
+    }
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          "تصویر کامل پازل 🖼️",
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.deepPurple),
-        ),
-        content: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.memory(
-            currentImageBytes!,
-            fit: BoxFit.contain,
-          ),
-        ),
-        actions: [
-          Center(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("متوجه شدم 👍"),
-            ),
-          )
-        ],
-      ),
-    );
+    _isSolved = true;
+    _audioPlayer.pause();
+    _confettiController.play();
+    _saveProgress();
+    _showSuccessDialog();
+  }
+
+  Future<void> _saveProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentUnlocked =
+        prefs.getInt('max_unlocked_level_${widget.playerName}') ?? 1;
+
+    if (currentLevel >= currentUnlocked && currentLevel < 10) {
+      await prefs.setInt(
+          'max_unlocked_level_${widget.playerName}', currentLevel + 1);
+    }
+
+    await RewardService.unlockReward(currentLevel);
+  }
+
+  Future<bool> _saveCurrentPuzzleImageToGallery() async {
+    final imageBytes = currentImageBytes;
+    if (imageBytes == null) return false;
+
+    try {
+      final result = await SaverGallery.saveImage(
+        imageBytes,
+        quality: 100,
+        fileName:
+            'puzzle_level_${currentLevel}_${DateTime.now().millisecondsSinceEpoch}.png',
+        androidRelativePath: 'Pictures/جورچین اندیشه',
+        skipIfExists: false,
+      );
+      return result.isSuccess;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _saveCurrentAudioToGallery() async {
+    final audioPath = currentAudioPath;
+    if (audioPath == null) return false;
+
+    try {
+      final result = await SaverGallery.saveFile(
+        file: audioPath,
+        fileName:
+            'puzzle_audio_level_${currentLevel}_${DateTime.now().millisecondsSinceEpoch}.mp3',
+        androidRelativePath: 'Music/جورچین اندیشه',
+        skipIfExists: false,
+      );
+      return result.isSuccess;
+    } catch (_) {
+      return false;
+    }
   }
 
   void _showSuccessDialog() {
@@ -324,370 +291,560 @@ class _GameScreenState extends State<GameScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) {
-        bool isSaving = false;
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: Column(
-                children: [
-                  const Text(
-                    "آفرین قهرمان! 🎉",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 22),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "مرحله $currentLevel کامل شد و کارت حکمت آزاد گشت",
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 13, color: Colors.grey),
-                  ),
-                ],
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Center(
+            child: Text(
+              '🎉 تبریک، شما برنده شدید! 🎉',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFFF8A00),
+                fontSize: 18,
               ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.asset(
-                        cardPath,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Text(
-                              "تصویر کارت در پوشه assets/rewards یافت نشد.",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 12, color: Colors.red),
-                            ),
-                          );
-                        },
-                      ),
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'آفرین قهرمان! جورچین این مرحله را با موفقیت حل کردی.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, height: 1.5),
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    cardPath,
+                    height: 180,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 120,
+                      color: Colors.orange.shade100,
+                      alignment: Alignment.center,
+                      child: const Text('کارت پاداش مرحله'),
                     ),
-                    const SizedBox(height: 14),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      ),
-                      icon: isSaving
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : const Icon(Icons.download_rounded),
-                      label: Text(isSaving ? "در حال ذخیره..." : "ذخیره کارت در گالری"),
-                      onPressed: isSaving
-                          ? null
-                          : () async {
-                              setDialogState(() => isSaving = true);
-                              final ok = await RewardService.saveCardToGallery(cardPath);
-                              setDialogState(() => isSaving = false);
+                  ),
+                ),
+                const SizedBox(height: 14),
 
-                              if (ctx.mounted) {
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      ok ? "عکس با موفقیت در گالری گوشی ذخیره شد ✅" : "خطا در ذخیره تصویر در گالری ❌",
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    backgroundColor: ok ? Colors.green : Colors.red,
-                                    duration: const Duration(seconds: 2),
-                                  ),
-                                );
-                              }
-                            },
+                // دکمه ۱: ذخیره کارت در گالری
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF8A00),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 42),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
-                ),
-              ),
-              actionsAlignment: MainAxisAlignment.spaceEvenly,
-              actions: [
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    Navigator.pop(context);
+                  icon: const Icon(Icons.download_rounded, size: 20),
+                  label: const Text('ذخیره کارت در گالری'),
+                  onPressed: () async {
+                    final ok = await RewardService.saveCardToGallery(cardPath);
+                    if (ctx.mounted) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            ok
+                                ? 'کارت جایزه در گالری ذخیره شد 🖼️'
+                                : 'ذخیره کارت جایزه ناموفق بود ❌',
+                            textAlign: TextAlign.center,
+                          ),
+                          backgroundColor: ok ? Colors.green : Colors.red,
+                        ),
+                      );
+                    }
                   },
-                  child: const Text("لیست مراحل 🗺️"),
                 ),
-                ElevatedButton(
+                const SizedBox(height: 8),
+
+                // دکمه ۲: ذخیره عکس جورچین در گالری
+                ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                    backgroundColor: const Color(0xFF1E88E5),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    minimumSize: const Size(double.infinity, 42),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _startLevel(currentLevel + 1);
+                  icon: const Icon(Icons.image_rounded, size: 20),
+                  label: const Text('ذخیره عکس جورچین در گالری'),
+                  onPressed: () async {
+                    final ok = await _saveCurrentPuzzleImageToGallery();
+                    if (ctx.mounted) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            ok
+                                ? 'عکس جورچین در گالری ذخیره شد ✅'
+                                : 'ذخیره عکس جورچین ناموفق بود ❌',
+                            textAlign: TextAlign.center,
+                          ),
+                          backgroundColor: ok ? Colors.green : Colors.red,
+                        ),
+                      );
+                    }
                   },
-                  child: const Text("مرحله بعدی 🚀"),
+                ),
+                const SizedBox(height: 8),
+
+                // دکمه ۳: ذخیره صوت این مرحله در گالری
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00897B),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 42),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.music_note_rounded, size: 20),
+                  label: const Text('ذخیره صوت این مرحله در گالری'),
+                  onPressed: () async {
+                    final ok = await _saveCurrentAudioToGallery();
+                    if (ctx.mounted) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            ok
+                                ? 'فایل صوتی مرحله ذخیره شد 🎵'
+                                : 'ذخیره صوت ناموفق بود ❌',
+                            textAlign: TextAlign.center,
+                          ),
+                          backgroundColor: ok ? Colors.green : Colors.red,
+                        ),
+                      );
+                    }
+                  },
                 ),
               ],
-            );
-          },
-        );
-      },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.pop(context);
+              },
+              child: const Text('لیست مراحل'),
+            ),
+            if (currentLevel < 10)
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    currentLevel++;
+                  });
+                  _initLevel();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('مرحله بعد ❯'),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
-  @override
-  void dispose() {
-    WakelockPlus.disable();
-    _playerCompleteSubscription?.cancel();
-    _durationSubscription?.cancel();
-    _positionSubscription?.cancel();
-    _audioPlayer.dispose();
-    super.dispose();
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
   }
 
   @override
   Widget build(BuildContext context) {
-    // محاسبه زمان باقیمانده آهنگ برای تایمر معکوس
-    final remainingSeconds = (_musicDuration - _currentPosition).inSeconds;
-    final displaySeconds = remainingSeconds > 0 ? remainingSeconds : 0;
-    final minutes = (displaySeconds ~/ 60).toString().padLeft(2, '0');
-    final seconds = (displaySeconds % 60).toString().padLeft(2, '0');
+    final size = MediaQuery.of(context).size;
+    final boardDim = min(size.width * 0.9, 360.0);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("مرحله $currentLevel ($rows×$cols)"),
-        centerTitle: true,
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          tooltip: "بازگشت به انتخاب مراحل",
-          onPressed: () {
-            _audioPlayer.stop();
-            Navigator.pop(context);
-          },
-        ),
-        actions: [
-          // ویجت تایمر معکوس آهنگ
-          if (!isLoading && !hasError)
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white30),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.timer_outlined, size: 16, color: Colors.amberAccent),
-                  const SizedBox(width: 4),
-                  Text(
-                    "$minutes:$seconds",
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-          // دکمه راهنمای چشمی
-          if (!isLoading && !hasError && currentImageBytes != null)
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFFF8E7),
+        appBar: AppBar(
+          title: Text('مرحله $currentLevel (${gridSize}x$gridSize)'),
+          backgroundColor: const Color(0xFFFF8A00),
+          foregroundColor: Colors.white,
+          centerTitle: true,
+          elevation: 2,
+          actions: [
             IconButton(
-              icon: const Icon(Icons.remove_red_eye_rounded, color: Colors.amberAccent, size: 26),
-              tooltip: "مشاهده تصویر کامل",
-              onPressed: _showImagePreviewHint,
-            ),
-        ],
-      ),
-      body: hasError
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.wifi_off_rounded, size: 70, color: Colors.redAccent),
-                    const SizedBox(height: 16),
-                    Text(
-                      errorMessage,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      ),
-                      onPressed: () => _startLevel(currentLevel),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text("تلاش مجدد"),
-                    )
-                  ],
-                ),
+              icon: Icon(
+                _showPreview
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
               ),
-            )
-          : isLoading
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 36.0),
+              tooltip: 'پیش‌نمایش تصویر کامل',
+              onPressed: () {
+                setState(() {
+                  _showPreview = !_showPreview;
+                });
+              },
+            ),
+          ],
+        ),
+        body: Stack(
+          children: [
+            isLoading
+                ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(loadingStatus, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 24),
-                        LinearProgressIndicator(
-                          value: downloadProgress,
-                          backgroundColor: Colors.grey.shade300,
-                          color: Colors.deepPurple,
-                          minHeight: 10,
-                          borderRadius: BorderRadius.circular(5),
+                        const CircularProgressIndicator(
+                          color: Color(0xFFFF8A00),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
                         Text(
-                          downloadProgress != null
-                              ? "${(downloadProgress! * 100).toInt()}%"
-                              : "${(downloadedBytes / 1024).toStringAsFixed(1)} KB بارگیری شد...",
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.deepPurple),
+                          loadingMessage,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF5D4037),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                )
-              : Column(
-                  children: [
-                    // قاب پازل اصلی در بالا
-                    Expanded(
-                      flex: 5,
-                      child: Container(
-                        margin: const EdgeInsets.all(8.0),
-                        alignment: Alignment.center,
-                        child: AspectRatio(
-                          aspectRatio: 1.0,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.deepPurple.shade300, width: 2),
+                  )
+                : Column(
+                    children: [
+                      // نوار زمان و پیشرفت صدا
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        color: Colors.white,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.timer_rounded,
+                                color: Color(0xFFFF8A00), size: 22),
+                            const SizedBox(width: 8),
+                            Text(
+                              _formatDuration(_currentPosition),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 13),
                             ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: GridView.builder(
-                                physics: const NeverScrollableScrollPhysics(),
-                                padding: EdgeInsets.zero,
-                                itemCount: totalPieces,
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: cols,
-                                  childAspectRatio: 1.0,
-                                  crossAxisSpacing: 1.0,
-                                  mainAxisSpacing: 1.0,
+                            Expanded(
+                              child: SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 4,
+                                  thumbShape: const RoundSliderThumbShape(
+                                      enabledThumbRadius: 6),
                                 ),
-                                itemBuilder: (context, index) {
-                                  final piece = placedPieces[index];
-                                  return DragTarget<PuzzlePieceData>(
-                                    onWillAcceptWithDetails: (details) => placedPieces[index] == null,
-                                    onAcceptWithDetails: (details) => _onPiecePlaced(index, details.data),
-                                    builder: (context, candidateData, rejectedData) {
-                                      return Container(
-                                        decoration: BoxDecoration(
-                                          color: piece != null ? Colors.transparent : Colors.white.withOpacity(0.9),
-                                          border: Border.all(color: Colors.grey.shade300, width: 0.5),
-                                        ),
-                                        child: piece != null
-                                            ? Image.memory(piece.imageBytes, fit: BoxFit.fill)
-                                            : Center(
-                                                child: Text(
-                                                  "${index + 1}",
-                                                  style: TextStyle(
-                                                    color: Colors.grey.shade400,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: rows >= 6 ? 9 : 14,
-                                                  ),
-                                                ),
-                                              ),
-                                      );
-                                    },
-                                  );
-                                },
+                                child: Slider(
+                                  value: _currentPosition.inSeconds
+                                      .toDouble()
+                                      .clamp(
+                                          0.0,
+                                          max(_totalDuration.inSeconds.toDouble(),
+                                              1.0)),
+                                  max: max(
+                                      _totalDuration.inSeconds.toDouble(), 1.0),
+                                  activeColor: const Color(0xFFFF8A00),
+                                  inactiveColor: Colors.orange.shade100,
+                                  onChanged: null,
+                                ),
                               ),
                             ),
+                            Text(
+                              _formatDuration(_totalDuration),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // ناحیه تخته اصلی جورچین
+                      Center(
+                        child: SizedBox(
+                          width: boardDim,
+                          height: boardDim,
+                          child: Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: const Color(0xFFFF8A00),
+                                    width: 2.5,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.08),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: GridView.builder(
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  padding: const EdgeInsets.all(4),
+                                  itemCount: gridSize * gridSize,
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: gridSize,
+                                    crossAxisSpacing: 3,
+                                    mainAxisSpacing: 3,
+                                  ),
+                                  itemBuilder: (context, slotIndex) {
+                                    final piece = boardSlots[slotIndex];
+
+                                    return DragTarget<PuzzlePiece>(
+                                      onWillAcceptWithDetails: (details) =>
+                                          boardSlots[slotIndex] == null,
+                                      onAcceptWithDetails: (details) {
+                                        setState(() {
+                                          final incoming = details.data;
+                                          trayPieces.removeWhere(
+                                              (p) => p.id == incoming.id);
+                                          for (int i = 0;
+                                              i < boardSlots.length;
+                                              i++) {
+                                            if (boardSlots[i]?.id ==
+                                                incoming.id) {
+                                              boardSlots[i] = null;
+                                            }
+                                          }
+                                          boardSlots[slotIndex] = incoming;
+                                        });
+                                        _checkSolution();
+                                      },
+                                      builder: (context, candidate, rejected) {
+                                        if (piece != null) {
+                                          return Draggable<PuzzlePiece>(
+                                            data: piece,
+                                            feedback: Material(
+                                              color: Colors.transparent,
+                                              child: SizedBox(
+                                                width: (boardDim / gridSize) - 4,
+                                                height:
+                                                    (boardDim / gridSize) - 4,
+                                                child: Image.memory(
+                                                  piece.imageBytes,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              ),
+                                            ),
+                                            childWhenDragging: Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey.shade300,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              child: Image.memory(
+                                                piece.imageBytes,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                          );
+                                        }
+
+                                        return Container(
+                                          decoration: BoxDecoration(
+                                            color: candidate.isNotEmpty
+                                                ? Colors.orange.shade100
+                                                : const Color(0xFFFFF3E0),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: candidate.isNotEmpty
+                                                  ? const Color(0xFFFF8A00)
+                                                  : Colors.orange.shade200,
+                                              width: 1.2,
+                                            ),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            '${slotIndex + 1}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.orange.shade300,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
+
+                              // حالت پیش‌نمایش شفاف با زدن چشم
+                              if (_showPreview && currentImageBytes != null)
+                                Positioned.fill(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Opacity(
+                                      opacity: 0.88,
+                                      child: Image.memory(
+                                        currentImageBytes!,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
 
-                    const Divider(height: 1, thickness: 1.5),
+                      const SizedBox(height: 12),
 
-                    // مخزن قطعات در پایین
-                    Expanded(
-                      flex: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        color: Colors.deepPurple.withOpacity(0.04),
-                        child: remainingPieces.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  "آفرین! همه تکه‌ها با موفقیت قرار گرفتند 👏",
-                                  style: TextStyle(fontSize: 16, color: Colors.green, fontWeight: FontWeight.bold),
-                                ),
-                              )
-                            : GridView.builder(
-                                physics: const BouncingScrollPhysics(),
-                                itemCount: remainingPieces.length,
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: cols >= 5 ? 5 : 4,
-                                  childAspectRatio: 1.0,
-                                  crossAxisSpacing: 6,
-                                  mainAxisSpacing: 6,
-                                ),
-                                itemBuilder: (context, index) {
-                                  final piece = remainingPieces[index];
-                                  return Draggable<PuzzlePieceData>(
-                                    data: piece,
-                                    feedback: Material(
-                                      elevation: 10,
-                                      borderRadius: BorderRadius.circular(6),
-                                      child: SizedBox(
-                                        width: 70,
-                                        height: 70,
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(6),
-                                          child: Image.memory(piece.imageBytes, fit: BoxFit.fill),
-                                        ),
-                                      ),
-                                    ),
-                                    childWhenDragging: Opacity(
-                                      opacity: 0.2,
-                                      child: Image.memory(piece.imageBytes, fit: BoxFit.fill),
-                                    ),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(6),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.08),
-                                            blurRadius: 3,
-                                            offset: const Offset(0, 2),
-                                          )
-                                        ],
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(6),
-                                        child: Image.memory(piece.imageBytes, fit: BoxFit.fill),
-                                      ),
-                                    ),
-                                  );
-                                },
+                      // سینی قطعات برای جابه‌جایی با انگشت
+                      Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(24),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.06),
+                                blurRadius: 8,
+                                offset: const Offset(0, -3),
                               ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'قطعات جورچین:',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: Color(0xFF5D4037),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${trayPieces.length} قطعه باقی‌مانده',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  physics: const BouncingScrollPhysics(),
+                                  child: Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: trayPieces.map((piece) {
+                                      final pieceSize =
+                                          (boardDim / gridSize) - 6;
+
+                                      return Draggable<PuzzlePiece>(
+                                        data: piece,
+                                        feedback: Material(
+                                          color: Colors.transparent,
+                                          child: SizedBox(
+                                            width: pieceSize,
+                                            height: pieceSize,
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              child: Image.memory(
+                                                piece.imageBytes,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        childWhenDragging: Opacity(
+                                          opacity: 0.3,
+                                          child: SizedBox(
+                                            width: pieceSize,
+                                            height: pieceSize,
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              child: Image.memory(
+                                                piece.imageBytes,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        child: Container(
+                                          width: pieceSize,
+                                          height: pieceSize,
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black
+                                                    .withOpacity(0.08),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            child: Image.memory(
+                                              piece.imageBytes,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+
+            // بارش جشن پیروزی
+            Align(
+              alignment: Alignment.topCenter,
+              child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                shouldLoop: false,
+                colors: const [
+                  Colors.green,
+                  Colors.blue,
+                  Colors.pink,
+                  Colors.orange,
+                  Colors.purple
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
