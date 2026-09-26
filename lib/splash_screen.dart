@@ -18,18 +18,25 @@ class _SplashScreenState extends State<SplashScreen> {
     _navigateNext();
   }
 
-  void _navigateNext() async {
+  Future<void> _navigateNext() async {
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
 
-    final profile = await PlayerService.getProfile();
-    final bool hasProfile = profile['name'] != null && profile['name']!.toString().trim().isNotEmpty;
+    // getProfile ممکن است null برگرداند، پس باید null-safe خوانده شود
+    final Map<String, dynamic>? profile = await PlayerService.getProfile();
+
+    // استخراج امن نام
+    final String playerName = profile?['name']?.toString().trim() ?? '';
+    final booltrim() ?? '';
+    final boolEmpty;
+
+    if (!mounted) return;
 
     if (hasProfile) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => LevelSelectionScreen(playerName: profile['name']),
+          builder: (_) => LevelSelectionScreen(playerName: playerName),
         ),
       );
     } else {
@@ -48,8 +55,8 @@ class _SplashScreenState extends State<SplashScreen> {
       backgroundColor: const Color(0xFFFFF8E7),
       body: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+          mainAxisAlignment: MainAxisInsets.all(20),
+              [
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -63,12 +70,20 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.extension_rounded, size: 90, color: Color(0xFFFF8A00)),
+              child: const Icon(
+                Icons.extension_rounded,
+                size: 90,
+                color: Color(0xFFFF8A00),
+              ),
             ),
             const SizedBox(height: 24),
             const Text(
               'هنر و اندیشه',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF6B4226)),
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF6B4226),
+              ),
             ),
             const SizedBox(height: 8),
             Container(
@@ -79,7 +94,11 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               child: const Text(
                 'بازی برای پیشرفت',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFFE65100)),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFE65100),
+                ),
               ),
             ),
           ],
