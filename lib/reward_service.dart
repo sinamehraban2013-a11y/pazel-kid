@@ -1,5 +1,6 @@
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
-import 'package:gal/gal.dart';
+import 'package:saver_gallery/saver_gallery.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RewardService {
@@ -42,26 +43,25 @@ class RewardService {
     }
   }
 
-  /// ذخیره تصویر کارت از درون برنامه (Asset) به گالری گوشی با پکیج gal
+  /// ذخیره تصویر کارت از درون برنامه (Asset) به گالری گوشی
   static Future<bool> saveCardToGallery(String assetPath) async {
     try {
-      // بررسی و دریافت دسترسی‌های گالری
-      final hasAccess = await Gal.hasAccess();
-      if (!hasAccess) {
-        final requestGranted = await Gal.requestAccess();
-        if (!requestGranted) return false;
-      }
-
       // خواندن بایت‌های تصویر از پوشه assets
       final ByteData byteData = await rootBundle.load(assetPath);
       final Uint8List uint8list = byteData.buffer.asUint8List();
 
-      // ذخیره در گالری
-      await Gal.putImageBytes(
+      final String fileName = 'hekmat_card_${DateTime.now().millisecondsSinceEpoch}';
+
+      // ذخیره مستقیم در گالری با مدیریت خودکار دسترسی‌ها
+      final SaveResult result = await SaverGallery.saveImage(
         uint8list,
-        name: 'hekmat_card_${DateTime.now().millisecondsSinceEpoch}',
+        quality: 100,
+        fileName: fileName,
+        androidRelativePath: "Pictures/PuzzleRewards",
+        skipIfExists: false,
       );
-      return true;
+
+      return result.isSuccess;
     } catch (e) {
       return false;
     }
