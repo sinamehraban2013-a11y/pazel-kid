@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'asset_manager.dart';
 import 'puzzle_helper.dart';
+import 'reward_service.dart'; // سرویس کارت جایزه و ذخیره در گالری
 
 class GameScreen extends StatefulWidget {
   final String playerName;
@@ -189,7 +190,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _saveProgressAndShowSuccess() async {
-    // ذخیره آنلاک شدن مرحله بعد
+    // ۱. باز کردن مرحله بعدی در صورت وجود
     final prefs = await SharedPreferences.getInstance();
     final String key = 'max_unlocked_level_${widget.playerName}';
     final int currentMax = prefs.getInt(key) ?? 1;
@@ -197,6 +198,10 @@ class _GameScreenState extends State<GameScreen> {
       await prefs.setInt(key, currentLevel + 1);
     }
 
+    // ۲. ثبت کارت جایزه این مرحله در دفترچه افتخارات
+    await RewardService.unlockReward(currentLevel);
+
+    // ۳. نمایش دیالوگ پیروزی و کارت جایزه
     _showSuccessDialog();
   }
 
@@ -249,8 +254,8 @@ class _GameScreenState extends State<GameScreen> {
             label: const Text("۴. بازگشت به انتخاب مراحل"),
             onPressed: () {
               Navigator.pop(ctx);
-              _audioPlayer.stop(); // قطع آهنگ
-              Navigator.pop(context); // خروج از بازی و رفتن به انتخاب مراحل
+              _audioPlayer.stop();
+              Navigator.pop(context);
             },
           ),
         ],
@@ -258,43 +263,166 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  // نمایش پنجره راهنمای چشمی (پیش‌نمایش تصویر کامل)
+  void _showImagePreviewHint() {
+    if (currentImageBytes == null) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          "تصویر کامل پازل 🖼️",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.deepPurple),
+        ),
+        content: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.memory(
+            currentImageBytes!,
+            fit: BoxFit.contain,
+          ),
+        ),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("متوجه شدم 👍"),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  // دیالوگ پیروزی با کارت جایزه و ذخیره در گالری
   void _showSuccessDialog() {
+    final cardPath = RewardService.getCardAssetPath(currentLevel);
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("آفرین قهرمان! 🎉", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-        content: Text(
-          "مرحله $currentLevel را با موفقیت تمام کردی!",
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16),
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              Navigator.pop(ctx); // بستن دیالوگ
-              Navigator.pop(context); // بازگشت به نقشه مراحل
-            },
-            child: const Text("لیست مراحل 🗺️"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _startLevel(currentLevel + 1);
-            },
-            child: const Text("مرحله بعدی 🚀"),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: Column(
+                children: [
+                  const Text(
+                    "آفرین قهرمان! 🎉",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 22),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "مرحله $currentLevel کامل شد و کارت حکمت آزاد گشت",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // نمایش کارت جایزه
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.asset(
+                        cardPath,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text(
+                              "تصویر کارت در پوشه assets/rewards یافت نشد.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 12, color: Colors.red),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // دکمه ذخیره در گالری گوشی
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      ),
+                      icon: isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Icon(Icons.download_rounded),
+                      label: Text(isSaving ? "در حال ذخیره..." : "ذخیره کارت در گالری"),
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                              setDialogState(() => isSaving = true);
+                              final ok = await RewardService.saveCardToGallery(cardPath);
+                              setDialogState(() => isSaving = false);
+
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      ok ? "عکس با موفقیت در گالری گوشی ذخیره شد ✅" : "خطا در ذخیره تصویر در گالری ❌",
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    backgroundColor: ok ? Colors.green : Colors.red,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                    ),
+                  ],
+                ),
+              ),
+              actionsAlignment: MainAxisAlignment.spaceEvenly,
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx); // بستن دیالوگ
+                    Navigator.pop(context); // بازگشت به نقشه مراحل
+                  },
+                  child: const Text("لیست مراحل 🗺️"),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _startLevel(currentLevel + 1);
+                  },
+                  child: const Text("مرحله بعدی 🚀"),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -315,6 +443,15 @@ class _GameScreenState extends State<GameScreen> {
         centerTitle: true,
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
+        actions: [
+          // دکمه راهنمای چشمی (پیش‌نمایش تصویر کامل)
+          if (!isLoading && !hasError && currentImageBytes != null)
+            IconButton(
+              icon: const Icon(Icons.remove_red_eye_rounded, color: Colors.amberAccent, size: 28),
+              tooltip: "مشاهده تصویر کامل",
+              onPressed: _showImagePreviewHint,
+            ),
+        ],
       ),
       body: hasError
           ? Center(
