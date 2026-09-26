@@ -749,11 +749,11 @@ class _GameScreenState extends State<GameScreen> {
                                   child: Wrap(
                                     spacing: 10,
                                     runSpacing: 10,
-                                    children: trayPieces.map((piece) {
+                                    children: trayPieces.map<Widget>((PuzzlePieceData piece) {
                                       final pieceSize =
                                           (boardDim / gridSize) - 6;
 
-                                      return Draggable<PuzzlePiece>(
+                                      return Draggable<PuzzlePieceData>(
                                         data: piece,
                                         feedback: Material(
                                           color: Colors.transparent,
