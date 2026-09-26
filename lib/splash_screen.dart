@@ -22,13 +22,9 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
 
-    // getProfile ممکن است null برگرداند، پس باید null-safe خوانده شود
-    final Map<String, dynamic>? profile = await PlayerService.getProfile();
-
-    // استخراج امن نام
+    final profile = await PlayerService.getProfile();
     final String playerName = profile?['name']?.toString().trim() ?? '';
-    final booltrim() ?? '';
-    final boolEmpty;
+    final bool hasProfile = playerName.isNotEmpty;
 
     if (!mounted) return;
 
@@ -55,8 +51,8 @@ class _SplashScreenState extends State<SplashScreen> {
       backgroundColor: const Color(0xFFFFF8E7),
       body: Center(
         child: Column(
-          mainAxisAlignment: MainAxisInsets.all(20),
-              [
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
