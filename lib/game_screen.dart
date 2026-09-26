@@ -38,9 +38,9 @@ class _GameScreenState extends State<GameScreen> {
   Uint8List? currentImageBytes;
   String? currentAudioPath;
 
-  List<PuzzlePiece> allPieces = [];
-  List<PuzzlePiece?> boardSlots = [];
-  List<PuzzlePiece> trayPieces = [];
+  List<PuzzlePieceData> allPieces = [];
+  List<PuzzlePieceData?> boardSlots = [];
+  List<PuzzlePieceData> trayPieces = [];
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   Duration _totalDuration = Duration.zero;
@@ -126,7 +126,7 @@ class _GameScreenState extends State<GameScreen> {
       );
 
       allPieces = List.from(pieces);
-      boardSlots = List<PuzzlePiece?>.filled(gridSize * gridSize, null);
+      boardSlots = List<PuzzlePieceData?>.filled(gridSize * gridSize, null);
       trayPieces = List.from(pieces)..shuffle(Random());
 
       // ۳. بارگذاری و پخش صوت
@@ -595,14 +595,14 @@ class _GameScreenState extends State<GameScreen> {
                                   itemBuilder: (context, slotIndex) {
                                     final piece = boardSlots[slotIndex];
 
-                                    return DragTarget<PuzzlePiece>(
+                                    return DragTarget<PuzzlePieceData>(
                                       onWillAcceptWithDetails: (details) =>
                                           boardSlots[slotIndex] == null,
                                       onAcceptWithDetails: (details) {
                                         setState(() {
                                           final incoming = details.data;
                                           trayPieces.removeWhere(
-                                              (p) => p.id == incoming.id);
+                                              (p) => p?.index == incoming.index);
                                           for (int i = 0;
                                               i < boardSlots.length;
                                               i++) {
@@ -617,7 +617,7 @@ class _GameScreenState extends State<GameScreen> {
                                       },
                                       builder: (context, candidate, rejected) {
                                         if (piece != null) {
-                                          return Draggable<PuzzlePiece>(
+                                          return Draggable<PuzzlePieceData>(
                                             data: piece,
                                             feedback: Material(
                                               color: Colors.transparent,
