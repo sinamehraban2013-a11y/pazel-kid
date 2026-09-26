@@ -7,7 +7,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:confetti/confetti.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:image/image.dart' as img;
 import 'package:saver_gallery/saver_gallery.dart';
 
 import 'asset_manager.dart';
@@ -115,14 +114,11 @@ class _GameScreenState extends State<GameScreen> {
       setState(() {
         loadingMessage = 'در حال آماده‌سازی و برش قطعات...';
       });
-      final decodedImage = img.decodeImage(imgBytes);
-      if (decodedImage == null) {
-        throw Exception('خطا در پردازش داده‌های تصویر.');
-      }
-
-      final pieces = await PuzzleHelper.splitImage(
-        decodedImage: decodedImage,
-        gridSize: gridSize,
+     
+      final pieces = PuzzleHelper.splitImage(
+        inputBytes: imgBytes,
+        rows: gridSize,
+        cols: gridSize,
       );
 
       allPieces = List.from(pieces);
@@ -218,7 +214,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _checkSolution() {
     for (int i = 0; i < boardSlots.length; i++) {
-      if (boardSlots[i] == null || boardSlots[i]!.correctIndex != i) {
+      if (boardSlots[i] == null || boardSlots[i]!.index != i) {
         return;
       }
     }
@@ -268,7 +264,7 @@ class _GameScreenState extends State<GameScreen> {
 
     try {
       final result = await SaverGallery.saveFile(
-        file: audioPath,
+        filePath: audioPath,
         fileName:
             'puzzle_audio_level_${currentLevel}_${DateTime.now().millisecondsSinceEpoch}.mp3',
         androidRelativePath: 'Music/جورچین اندیشه',
@@ -602,12 +598,12 @@ class _GameScreenState extends State<GameScreen> {
                                         setState(() {
                                           final incoming = details.data;
                                           trayPieces.removeWhere(
-                                              (p) => p?.index == incoming.index);
+                                              (p) => p.index == incoming.index);
                                           for (int i = 0;
                                               i < boardSlots.length;
                                               i++) {
-                                            if (boardSlots[i]?.id ==
-                                                incoming.id) {
+                                            if (boardSlots[i]?.index ==
+                                                incoming.index) {
                                               boardSlots[i] = null;
                                             }
                                           }
