@@ -6,7 +6,8 @@ import 'game_screen.dart';
 
 class LevelSelectionScreen extends StatefulWidget {
   final String playerName;
-  const LevelSelectionScreen({Key? key, required this.playerName}) : super(key: key);
+  const LevelSelectionScreen({Key? key, required this.playerName})
+      : super(key: key);
 
   @override
   State<LevelSelectionScreen> createState() => _LevelSelectionScreenState();
@@ -15,7 +16,9 @@ class LevelSelectionScreen extends StatefulWidget {
 class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
   int _unlockedLevel = 1;
   bool _isLoading = true;
+
   late final String _randomQuote;
+
   final ScrollController _quoteScrollController = ScrollController();
   Timer? _quoteTimer;
 
@@ -43,10 +46,14 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
   void _startQuoteAnimation() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_quoteScrollController.hasClients) return;
-      _quoteTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+
+      _quoteTimer?.cancel();
+      _quoteTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
         if (!_quoteScrollController.hasClients) return;
+
         final maxScroll = _quoteScrollController.position.maxScrollExtent;
         final currentScroll = _quoteScrollController.offset;
+
         if (maxScroll <= 0) return;
 
         if (currentScroll >= maxScroll) {
@@ -61,12 +68,16 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
   Future<void> _loadProgress() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getInt('max_unlocked_level_${widget.playerName}') ?? 1;
+      final saved =
+          prefs.getInt('max_unlocked_level_${widget.playerName}') ?? 1;
+
+      if (!mounted) return;
       setState(() {
         _unlockedLevel = saved.clamp(1, 10);
         _isLoading = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() {
         _unlockedLevel = 1;
         _isLoading = false;
@@ -81,31 +92,57 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     super.dispose();
   }
 
+  void _openLevel(int level) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GameScreen(
+          playerName: widget.playerName,
+          level: level,
+        ),
+      ),
+    ).then((_) {
+      // بعد از برگشت از بازی، پیشرفت را دوباره می‌خوانیم تا اگر مرحله باز شد UI آپدیت شود
+      _loadProgress();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF6E5),
       appBar: AppBar(
-        title: Text('قهرمان: ${widget.playerName}', style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          'قهرمان: ${widget.playerName}',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: const Color(0xFFFF8A00),
         foregroundColor: Colors.white,
         centerTitle: true,
         automaticallyImplyLeading: false,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF8A00)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFF8A00)),
+            )
           : Column(
               children: [
-                // کادر متن تصادفی متحرک در بالا (بند ۷)
+                // کادر متن تصادفی متحرک در بالا
                 Container(
                   margin: const EdgeInsets.all(12),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFFFD59E), width: 1.5),
+                    border:
+                        Border.all(color: const Color(0xFFFFD59E), width: 1.5),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 3)),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
                     ],
                   ),
                   height: 48,
@@ -127,62 +164,13 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                     ],
                   ),
                 ),
+
                 Expanded(
                   child: GridView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      child
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF6E5),
-      appBar: AppBar(
-        title: Text('قهرمان: ${widget.playerName}', style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFF8A00),
-        foregroundColor: Colors.white,
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF8A00)))
-          : Column(
-              children: [
-                // کادر متن تصادفی متحرک در بالا (بند ۷)
-                Container(
-                  margin: const EdgeInsets.all(12),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFFFD59E), width: 1.5),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 3)),
-                    ],
-                  ),
-                  height: 48,
-                  child: ListView(
-                    controller: _quoteScrollController,
-                    scrollDirection: Axis.horizontal,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      Center(
-                        child: Text(
-                          _randomQuote,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF5D4037),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: GridView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 14,
                       mainAxisSpacing: 14,
@@ -194,59 +182,97 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                       final isUnlocked = level <= _unlockedLevel;
 
                       return InkWell(
-                        onTap: isUnlocked
-                            ? () {
-                                Navigator.push(
-                                  contextبند ۳).
-2. **دکمه برگشت دائم** در بالای صفحه که با رفتن به مراحل بعد حذف نشود (بند ۴).
-3. **گزینه چهارم: «بازگشت به انتخاب مراحل»** در دیالوگ پایان زمان (بند ۶).
-
-#### تغییرات کلیدی در `lib/game_screen.dart`:
-```dart
-// ۱. در بخش ساخت AppBar یا نوار بالای بازی:
-Widget _buildTopBar() {
-  final remainingSeconds = (_musicDuration - _currentPosition).inSeconds;
-  final displaySeconds = remainingSeconds > 0 ? remainingSeconds : 0;
-  final minutes = (displaySeconds ~/ 60).toString().padLeft(2, '0');
-  final seconds = (displaySeconds % 60).toString().padLeft(2, '0');
-
-  return Padding(
-padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-child: Row(
-mainAxisAlignment: MainAxisAlignment.spaceBetween,
-children: [
-// دکمه بازگشت مطمئن به صفحه انتخاب مراحل (بند ۴)
-IconButton(
-icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF6B4226)),
-onPressed: () {
-_audioPlayer.stop();
-Navigator.pop(context);
-},
-),
-// نمایش شماره مرحله
-Text(
-'مرحله $_currentLevel',
-style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6B4226)),
-),
-// تایمر معکوس موسیقی (بند ۳)
-Container(
-padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-decoration: BoxDecoration(
-color: const Color(0xFFFFE0B2),
-borderRadius: BorderRadius.circular(12),
-),
-child: Row(
-children: [
-const Icon(Icons.timer_outlined, size: 18, color: Color(0xFFE65100)),
-const SizedBox(width: 4),
-Text(
-'$minutes:$seconds',
-style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFE65100)),
-),
-],
-),
-),
-],
-),
-  );
+                        onTap: isUnlocked ? () => _openLevel(level) : null,
+                        borderRadius: BorderRadius.circular(18),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isUnlocked
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.65),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: isUnlocked
+                                  ? const Color(0xFFFFC77D)
+                                  : const Color(0xFFFFE1B8),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'مرحله $level',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: isUnlocked
+                                                  ? const Color(0xFF6B4226)
+                                                  : const Color(0xFFBCAAA4),
+                                            ),
+                                          ),
+                                          Icon(
+                                            isUnlocked
+                                                ? Icons.lock_open_rounded
+                                                : Icons.lock_rounded,
+                                            color: isUnlocked
+                                                ? const Color(: isUnlocked
+                                                ? const Color( const Color(0xFFBCAAA4),
+                                          ),
+                                        ],
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        isUnlocked
+                                            ? 'برای شروع لمس کنید'
+                                            : 'قفل است',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: isUnlocked
+                                              ? const Color(0xFFFF8A00)
+                                              : const Color(0xFFBCAAA4),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (!isUnlocked)
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.25),
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
 }
