@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'asset_manager.dart';
 import 'puzzle_helper.dart';
-import 'reward_service.dart'; // سرویس کارت جایزه و ذخیره در گالری
+import 'reward_service.dart';
 
 class GameScreen extends StatefulWidget {
   final String playerName;
@@ -15,8 +15,10 @@ class GameScreen extends StatefulWidget {
   const GameScreen({
     Key? key,
     required this.playerName,
-    this.initialLevel = 1,
-  }) : super(key: key);
+    int? level,
+    int? initialLevel,
+  })  : initialLevel = initialLevel ?? level ?? 1,
+        super(key: key);
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -42,27 +44,28 @@ class _GameScreenState extends State<GameScreen> {
   List<PuzzlePieceData?> placedPieces = [];
 
   final AudioPlayer _audioPlayer = AudioPlayer();
+  Duration _musicDuration = Duration.zero;
+  Duration _currentPosition = Duration.zero;
+
   StreamSubscription? _playerCompleteSubscription;
+  StreamSubscription? _durationSubscription;
+  StreamSubscription? _positionSubscription;
+
   bool _isLevelComplete = false;
   bool _dialogShown = false;
 
   @override
   void initState() {
     super.initState();
-    // فعال‌سازی روشن ماندن دائمی صفحه در زمان باز بودن بازی
+    // فعال‌سازی روشن ماندن دائمی صفحه در حین بازی
     WakelockPlus.enable();
 
     currentLevel = widget.initialLevel;
-    _setupAudioListener();
+    _setupAudioListeners();
     _startLevel(currentLevel);
   }
 
   void _setupGridDimensions(int level) {
-    // مرحله ۱: ۲×۲ (۴ تکه)
-    // مرحله ۲: ۳×۳ (۹ تکه)
-    // ...
-    // مرحله ۹: ۱۰×۱۰ (۱۰۰ تکه)
-    // مرحله ۱۰ و بالاتر: ثابت روی ۱۰×۱۰
     int dim = level + 1;
     if (dim > 10) dim = 10;
     rows = dim;
@@ -70,10 +73,25 @@ class _GameScreenState extends State<GameScreen> {
     totalPieces = rows * cols;
   }
 
-  void _setupAudioListener() {
+  void _setupAudioListeners() {
+    // گوش دادن به اتمام آهنگ
     _playerCompleteSubscription = _audioPlayer.onPlayerComplete.listen((event) {
       if (!_isLevelComplete && !_dialogShown && mounted) {
         _showGameOverDialog();
+      }
+    });
+
+    // دریافت مدت زمان کل آهنگ
+    _durationSubscription = _audioPlayer.onDurationChanged.listen((dur) {
+      if (mounted) {
+        setState(() => _musicDuration = dur);
+      }
+    });
+
+    // دریافت موقعیت زمانی لحظه‌ای جهت به‌روزرسانی تایمر
+    _positionSubscription = _audioPlayer.onPositionChanged.listen((pos) {
+      if (mounted) {
+        setState(() => _currentPosition = pos);
       }
     });
   }
@@ -87,6 +105,8 @@ class _GameScreenState extends State<GameScreen> {
       downloadedBytes = 0;
       _isLevelComplete = false;
       _dialogShown = false;
+      _musicDuration = Duration.zero;
+      _currentPosition = Duration.zero;
       currentLevel = level;
       _setupGridDimensions(level);
       placedPieces = List<PuzzlePieceData?>.filled(totalPieces, null);
@@ -136,7 +156,7 @@ class _GameScreenState extends State<GameScreen> {
 
       setState(() => loadingStatus = "برش و آماده‌سازی قطعات پازل...");
 
-      // ۳. برش تصویر بر اساس ردیف و ستون
+      // ۳. برش تصویر
       final pieces = PuzzleHelper.splitImage(
         inputBytes: currentImageBytes!,
         rows: rows,
@@ -172,7 +192,7 @@ class _GameScreenState extends State<GameScreen> {
         remainingPieces.removeWhere((p) => p.index == piece.index);
       });
 
-      // بررسی برنده شدن در پازل
+      // بررسی تکمیل پازل
       if (!placedPieces.contains(null)) {
         _isLevelComplete = true;
         _audioPlayer.stop();
@@ -190,7 +210,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _saveProgressAndShowSuccess() async {
-    // ۱. باز کردن مرحله بعدی در صورت وجود
+    // ذخیره مرحله باز شده جدید
     final prefs = await SharedPreferences.getInstance();
     final String key = 'max_unlocked_level_${widget.playerName}';
     final int currentMax = prefs.getInt(key) ?? 1;
@@ -198,10 +218,10 @@ class _GameScreenState extends State<GameScreen> {
       await prefs.setInt(key, currentLevel + 1);
     }
 
-    // ۲. ثبت کارت جایزه این مرحله در دفترچه افتخارات
+    // ثبت کارت جایزه
     await RewardService.unlockReward(currentLevel);
 
-    // ۳. نمایش دیالوگ پیروزی و کارت جایزه
+    // دیالوگ موفقیت
     _showSuccessDialog();
   }
 
@@ -247,7 +267,6 @@ class _GameScreenState extends State<GameScreen> {
               _startLevel(currentLevel, reuseAudio: false, reuseImage: false);
             },
           ),
-          // گزینه چهارم: بازگشت به انتخاب مراحل
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
             icon: const Icon(Icons.grid_view_rounded),
@@ -263,7 +282,6 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  // نمایش پنجره راهنمای چشمی (پیش‌نمایش تصویر کامل)
   void _showImagePreviewHint() {
     if (currentImageBytes == null) return;
 
@@ -300,7 +318,6 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  // دیالوگ پیروزی با کارت جایزه و ذخیره در گالری
   void _showSuccessDialog() {
     final cardPath = RewardService.getCardAssetPath(currentLevel);
 
@@ -332,7 +349,6 @@ class _GameScreenState extends State<GameScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // نمایش کارت جایزه
                     ClipRRect(
                       borderRadius: BorderRadius.circular(16),
                       child: Image.asset(
@@ -351,8 +367,6 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                     ),
                     const SizedBox(height: 14),
-
-                    // دکمه ذخیره در گالری گوشی
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.teal,
@@ -401,8 +415,8 @@ class _GameScreenState extends State<GameScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () {
-                    Navigator.pop(ctx); // بستن دیالوگ
-                    Navigator.pop(context); // بازگشت به نقشه مراحل
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
                   },
                   child: const Text("لیست مراحل 🗺️"),
                 ),
@@ -428,26 +442,62 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
-    // غیرفعال کردن روشن ماندن دائم صفحه هنگام خروج از بازی
     WakelockPlus.disable();
     _playerCompleteSubscription?.cancel();
+    _durationSubscription?.cancel();
+    _positionSubscription?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // محاسبه زمان باقیمانده آهنگ برای تایمر معکوس
+    final remainingSeconds = (_musicDuration - _currentPosition).inSeconds;
+    final displaySeconds = remainingSeconds > 0 ? remainingSeconds : 0;
+    final minutes = (displaySeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (displaySeconds % 60).toString().padLeft(2, '0');
+
     return Scaffold(
       appBar: AppBar(
         title: Text("مرحله $currentLevel ($rows×$cols)"),
         centerTitle: true,
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          tooltip: "بازگشت به انتخاب مراحل",
+          onPressed: () {
+            _audioPlayer.stop();
+            Navigator.pop(context);
+          },
+        ),
         actions: [
-          // دکمه راهنمای چشمی (پیش‌نمایش تصویر کامل)
+          // ویجت تایمر معکوس آهنگ
+          if (!isLoading && !hasError)
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white30),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.timer_outlined, size: 16, color: Colors.amberAccent),
+                  const SizedBox(width: 4),
+                  Text(
+                    "$minutes:$seconds",
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          // دکمه راهنمای چشمی
           if (!isLoading && !hasError && currentImageBytes != null)
             IconButton(
-              icon: const Icon(Icons.remove_red_eye_rounded, color: Colors.amberAccent, size: 28),
+              icon: const Icon(Icons.remove_red_eye_rounded, color: Colors.amberAccent, size: 26),
               tooltip: "مشاهده تصویر کامل",
               onPressed: _showImagePreviewHint,
             ),
