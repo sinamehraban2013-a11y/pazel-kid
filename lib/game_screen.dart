@@ -242,6 +242,17 @@ class _GameScreenState extends State<GameScreen> {
               _startLevel(currentLevel, reuseAudio: false, reuseImage: false);
             },
           ),
+          // گزینه چهارم: بازگشت به انتخاب مراحل
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            icon: const Icon(Icons.grid_view_rounded),
+            label: const Text("۴. بازگشت به انتخاب مراحل"),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _audioPlayer.stop(); // قطع آهنگ
+              Navigator.pop(context); // خروج از بازی و رفتن به انتخاب مراحل
+            },
+          ),
         ],
       ),
     );
