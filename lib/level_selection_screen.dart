@@ -232,8 +232,8 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                                                 ? Icons.lock_open_rounded
                                                 : Icons.lock_rounded,
                                             color: isUnlocked
-                                                ? const Color(: isUnlocked
-                                                ? const Color( const Color(0xFFBCAAA4),
+                                                ? const Color(0xFFFF8A00)
+                                                : const Color(0xFFBCAAA4),
                                           ),
                                         ],
                                       ),
