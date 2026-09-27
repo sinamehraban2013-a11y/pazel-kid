@@ -74,7 +74,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
 
       if (!mounted) return;
       setState(() {
-        _unlockedLevel = saved.clamp(1, 10);
+        _unlockedLevel = saved.clamp(1, 10).toInt();
         _isLoading = false;
       });
     } catch (_) {
