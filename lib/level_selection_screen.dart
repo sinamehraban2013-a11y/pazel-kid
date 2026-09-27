@@ -18,7 +18,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
   bool _isLoading = true;
 
   final ScrollController _quoteScrollController = ScrollController();
-  Timer? _quoteTimer;
+  Timer? _marqueeTimer;
 
   static const List<String> quotes = [
     "کمال انسان مثل آب در کوزه‌ی گلی است، جلوی نشت آن را نمی‌توان گرفت.",
@@ -31,38 +31,38 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     "کاروانت را انتخاب کن و در مسیر عشق قدم بگذار."
   ];
 
+  // اتصال جملات با دقیقا ۱۵ کاراکتر فاصله سفید
   String get _marqueeText => quotes.join(' ' * 15);
+
+  void _startMarqueeScroll() {
+    _marqueeTimer?.cancel();
+    _marqueeTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (!_quoteScrollController.hasClients) return;
+      final maxScroll = _quoteScrollController.position.maxScrollExtent;
+      final currentScroll = _quoteScrollController.offset;
+
+      if (maxScroll <= 0) return;
+
+      if (currentScroll <= 0) {
+        _quoteScrollController.jumpTo(maxScroll);
+      } else {
+        _quoteScrollController.jumpTo(currentScroll - 1);
+      }
+    });
+  }
 
   @override
   void initState() {
     super.initState();
     _loadProgress();
-    _startQuoteAnimation();
-  }
-
-  void _startQuoteAnimation() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_quoteScrollController.hasClients) return;
-
-      _quoteScrollController.jumpTo(
-        _quoteScrollController.position.maxScrollExtent,
-      );
-
-      _quoteTimer?.cancel();
-      _quoteTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
-        if (!_quoteScrollController.hasClients) return;
-
-        final maxScroll = _quoteScrollController.position.maxScrollExtent;
-        final currentScroll = _quoteScrollController.offset;
-
-        if (maxScroll <= 0) return;
-
-        if (currentScroll <= 0) {
-          _quoteScrollController.jumpTo(maxScroll);
-        } else {
-          _quoteScrollController.jumpTo(currentScroll - 1);
-        }
-      });
+      if (!mounted) return;
+      if (_quoteScrollController.hasClients) {
+        _quoteScrollController.jumpTo(
+          _quoteScrollController.position.maxScrollExtent,
+        );
+      }
+      _startMarqueeScroll();
     });
   }
 
@@ -88,7 +88,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
 
   @override
   void dispose() {
-    _quoteTimer?.cancel();
+    _marqueeTimer?.cancel();
     _quoteScrollController.dispose();
     super.dispose();
   }
@@ -105,9 +105,11 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     ).then((_) {
       _loadProgress();
       if (_quoteScrollController.hasClients) {
-        _quoteScrollController.jumpTo(0);
+        _quoteScrollController.jumpTo(
+          _quoteScrollController.position.maxScrollExtent,
+        );
       }
-      _startQuoteAnimation();
+      _startMarqueeScroll();
     });
   }
 
