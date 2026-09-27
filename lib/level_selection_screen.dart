@@ -260,7 +260,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF8A00),
+                backgroundColor: const Color(0xFF00897B),
                 foregroundColor: Colors.white,
               ),
               onPressed: () async {
@@ -466,7 +466,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
           'قهرمان: ${widget.playerName}',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFFFF8A00),
+        backgroundColor: const Color(0xFF6B4226),
         foregroundColor: Colors.white,
         centerTitle: true,
         automaticallyImplyLeading: false,
@@ -552,8 +552,8 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
                               color: isUnlocked
-                                  ? const Color(0xFFFFC77D)
-                                  : const Color(0xFFFFE1B8),
+                                  ? const Color(0xFF6B4226)
+                                  : const Color(0xFFFF8F00),
                               width: 1.5,
                             ),
                             boxShadow: [
