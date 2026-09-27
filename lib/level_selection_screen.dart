@@ -33,8 +33,22 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     "کاروانت را انتخاب کن و در مسیر عشق قدم بگذار."
   ];
 
-  String get _marqueeText => quotes.join(' ' * 20);
+  String get _marqueeText => quotes.join(' ' * 15);
 
+  void _startMarqueeScroll() {
+    _marqueeTimer?.cancel();
+    _marqueeTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (!_quoteScrollController.hasClients) return;
+      final maxScroll = _quoteScrollController.position.maxScrollExtent;
+      final currentScroll = _quoteScrollController.offset;
+
+      if (currentScroll <= 0) {
+        _quoteScrollController.jumpTo(maxScroll);
+      } else {
+        _quoteScrollController.jumpTo(currentScroll - 1);
+      }
+    });
+  }
   @override
   void initState() {
     super.initState();
