@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'player_service.dart';
-import 'how_to_play_screen.dart';
-import 'level_selection_screen.dart';
+import 'package:puzzle_kids_game/level_selection_screen.dart';
+import 'package:puzzle_kids_game/how_to_play_screen.dart' hide LevelSelectionScreen;
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -39,7 +39,7 @@ class _SplashScreenState extends State<SplashScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => const HowToPlayScreen(),
+          builder: (_) => HowToPlayScreen(),
         ),
       );
     }
