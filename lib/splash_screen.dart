@@ -19,16 +19,28 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _navigateNext() async {
+    // ۳ ثانیه توقف برای نمایش اسپلش
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
 
-    final profile = await PlayerService.getProfile();
-    final String playerName = profile?['name']?.toString().trim() ?? '';
-    final bool hasProfile = playerName.isNotEmpty;
+    String playerName = '';
+
+    try {
+      // استفاده از timeout برای جلوگیری از قفل شدن بی‌پایان
+      final profile = await PlayerService.getProfile().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => null,
+      );
+      playerName = profile?['name']?.toString().trim() ?? '';
+    } catch (e) {
+      debugPrint('Error loading player profile: $e');
+      playerName = '';
+    }
 
     if (!mounted) return;
 
-    if (hasProfile) {
+    if (playerName.isNotEmpty) {
+      // اگر قبلاً پروفایل داشت، مستقیم وارد انتخاب مراحل می‌شود
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -36,6 +48,7 @@ class _SplashScreenState extends State<SplashScreen> {
         ),
       );
     } else {
+      // اگر پروفایل نداشت یا خطا داد، به صفحه خوش‌آمدگویی و ساخت پروفایل هدایت می‌شود
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -74,7 +87,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'هنر و اندیشه',
+              'گروه محفل اُنس',
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -89,7 +102,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(
-                'بازی برای پیشرفت',
+                'تکه‌های کوچک؛ فکرهای بزرگ',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
