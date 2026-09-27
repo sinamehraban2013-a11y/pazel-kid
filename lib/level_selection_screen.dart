@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,7 +17,6 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
   int _unlockedLevel = 1;
   bool _isLoading = true;
 
-  String _randomQuote = '';
   final ScrollController _quoteScrollController = ScrollController();
   Timer? _quoteTimer;
 
@@ -35,32 +33,11 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
 
   String get _marqueeText => quotes.join(' ' * 15);
 
-  void _startMarqueeScroll() {
-    _marqueeTimer?.cancel();
-    _marqueeTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      if (!_quoteScrollController.hasClients) return;
-      final maxScroll = _quoteScrollController.position.maxScrollExtent;
-      final currentScroll = _quoteScrollController.offset;
-
-      if (currentScroll <= 0) {
-        _quoteScrollController.jumpTo(maxScroll);
-      } else {
-        _quoteScrollController.jumpTo(currentScroll - 1);
-      }
-    });
-  }
   @override
   void initState() {
     super.initState();
-    _refreshQuote();
     _loadProgress();
     _startQuoteAnimation();
-  }
-
-  void _refreshQuote() {
-    setState(() {
-      _randomQuote = quotes[Random().nextInt(quotes.length)];
-    });
   }
 
   void _startQuoteAnimation() {
@@ -127,7 +104,6 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
       ),
     ).then((_) {
       _loadProgress();
-      _refreshQuote();
       if (_quoteScrollController.hasClients) {
         _quoteScrollController.jumpTo(0);
       }
