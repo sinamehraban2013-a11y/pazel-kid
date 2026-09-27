@@ -113,48 +113,103 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     });
   }
 
-  Future<void> _launchUrl(String urlString) async {
-    final uri = Uri.parse(urlString);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+  Future<void> _launchURL(String urlString) async {
+    final Uri uri = Uri.parse(urlString);
+    try {
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('امکان باز کردن پیوند وجود ندارد.')),
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('خطا در باز کردن پیوند.')),
+        );
+      }
     }
   }
 
+  // ۲. نمایش پنجره درباره ما با متن دقیق مدنظر شما
   void _showAboutDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('درباره ما', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'این نرم‌افزار در راستای جهاد تبیین و آشنایی با معارف اهل‌بیت (علیهم‌السلام) تولید شده است.\n\nاللهم عجل لولیک الفرج.',
-                  style: TextStyle(height: 1.8),
-                ),
-                const Divider(height: 24),
-                const Text('پیوندها و پایگاه‌ها:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                _buildLinkItem('کانال ایتا:', 'https://eitaa.com/shiravi_ir'),
-                _buildLinkItem('کانال بله:', 'https://ble.ir/join/NGMyZGI5OT'),
-                _buildLinkItem('مقالات:', 'https://eitaa.com/maghaleh_shiravi'),
-                _buildLinkItem('کتب:', 'https://eitaa.com/ketab_shiravi'),
-                _buildLinkItem('وب‌سایت رسمی:', 'https://www.shiravi.org'),
-              ],
-            ),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Center(
+          child: Text('درباره ما', style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+        content: const SingleChildScrollView(
+          child: Text(
+            'این نرم‌افزار حاصل ایده‌پردازی و تلاش جوانان هنرمندی است که در پاسخ به ندای رهبر عزیزمان مخلصانه و خلاقانه جهاد تبیین را شروع کرده و امیدوارند با هدایت اهل فن و بزرگان بتوانند محصولاتی جذاب، فرهنگی و مفید را برای شما فراهم کنند.\n\n'
+            'به دعای خیر شما و حمایت‌هایتان محتاجیم. با ما در شبکه‌های اجتماعی در ارتباط باشید.\n\n'
+            'اللهم عجل لولیک الفرج',
+            textAlign: TextAlign.justify,
+            style: TextStyle(height: 1.6),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('بستن'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('بستن'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ۳. نمایش فرم ارتباط با ما و اتصال مستقیم به ایمیل
+  void _showContactDialog() {
+    final TextEditingController textController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('ارتباط با ما', textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('نظرات، پیشنهادات و انتقادات خود را برای ما بنویسید:'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: textController,
+              maxLines: 4,
+              textDirection: TextDirection.rtl,
+              decoration: const InputDecoration(
+                hintText: 'متن پیام شما...',
+                border: OutlineInputBorder(),
+              ),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('انصراف'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final message = textController.text.trim();
+              if (message.isEmpty) return;
+
+              final Uri emailUri = Uri(
+                scheme: 'mailto',
+                path: 'm_khozani@yahoo.com',
+                queryParameters: {
+                  'subject': 'نظر کاربر در بازی پازل',
+                  'body': message,
+                },
+              );
+
+              Navigator.pop(ctx);
+              await _launchURL(emailUri.toString());
+            },
+            child: const Text('ارسال'),
+          ),
+        ],
       ),
     );
   }
@@ -176,65 +231,11 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     );
   }
 
-  void _showContactDialog() {
-    final messageController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('ارتباط با ما', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('لطفاً نظر، پیشنهاد یا گزارش خطای خود را برای ما ارسال کنید:'),
-              const SizedBox(height: 12),
-              TextField(
-                controller: messageController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'متن پیام شما...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('انصراف'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF8A00)),
-              onPressed: () async {
-                final text = messageController.text.trim();
-                final uri = Uri(
-                  scheme: 'mailto',
-                  path: 'm_khozani@yahoo.com',
-                  queryParameters: {
-                    'subject': 'بازخورد بازی پازل',
-                    'body': text,
-                  },
-                );
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri);
-                }
-                if (mounted) Navigator.pop(ctx);
-              },
-              child: const Text('ارسال ایمیل', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF6E5),
-      appBar: AppBar(
+appBar: AppBar(
         title: Text(
           'قهرمان: ${widget.playerName}',
           style: const TextStyle(fontWeight: FontWeight.bold),
@@ -244,15 +245,50 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
         centerTitle: true,
         automaticallyImplyLeading: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline_rounded),
-            tooltip: 'درباره ما',
-            onPressed: _showAboutDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.mail_outline_rounded),
-            tooltip: 'ارتباط با ما',
-            onPressed: _showContactDialog,
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded),
+            tooltip: 'منو',
+            onSelected: (value) {
+              if (value == 'about') {
+                _showAboutDialog();
+              } else if (value == 'contact') {
+                _showContactDialog();
+              } else {
+                _launchURL(value);
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem(
+                value: 'about',
+                child: Text('درباره ما'),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'https://eitaa.com/shiravi_ir',
+                child: Text('کانال هزاران فکر عمیق استاد شیروی'),
+              ),
+              const PopupMenuItem(
+                value: 'https://ble.ir/join/NGMyZGI5OT',
+                child: Text('کانال پاسخ به پرسش‌های سخت'),
+              ),
+              const PopupMenuItem(
+                value: 'https://eitaa.com/maghaleh_shiravi',
+                child: Text('کانال مقالات علمی، آموزشی، فرهنگی'),
+              ),
+              const PopupMenuItem(
+                value: 'https://eitaa.com/ketab_shiravi',
+                child: Text('کانال کتب داستان، علمی و مذهبی'),
+              ),
+              const PopupMenuItem(
+                value: 'https://www.shiravi.org',
+                child: Text('سایت استاد دکتر شیروی'),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'contact',
+                child: Text('ارتباط با ما'),
+              ),
+            ],
           ),
         ],
       ),
