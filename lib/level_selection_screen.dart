@@ -160,58 +160,65 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
   void _showHelpDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          'راهنمای بازی',
-          textAlign: TextAlign.center,
-        ),
-        content: const SingleChildScrollView(
-          child: Text(
-            '۱. با شروع بازی یک موسیقی، نوا یا سخنرانی برای شما پخش می شود و زمان سنج که مدت آن را نمایش می دهد فعال می شود. شما تا پایان مدت پخش صدا می توانید پازل را تکمیل کنید و کارت هدیه مرحله را دریافت کنید.\n\n'
-            '۲. قطعات پازل را از پایین تصویر با انگشت کشیده و در جای مناسب آن در بالای تصویر قرار دهید.\n\n'
-            '۳. برای راهنمایی می توانید روی دکمه چشم در بالای صفحه کلیک کنید.\n\n'
-            '۴. برای دیدن قطعات در پایین صفحه، می توانید با دو انگشت صفحه زیرین را جابه جا کنید.',
-            textAlign: TextAlign.right,
-            style: TextStyle(fontSize: 15, height: 1.8),
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('بستن'),
+          title: const Text(
+            'راهنمای بازی',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6B4226)),
           ),
-        ],
+          content: const SingleChildScrollView(
+            child: Text(
+              '۱. با شروع بازی یک موسیقی، نوا یا سخنرانی برای شما پخش می شود و زمان سنج که مدت آن را نمایش می دهد فعال می شود. شما تا پایان مدت پخش صدا می توانید پازل را تکمیل کنید و کارت هدیه مرحله را دریافت کنید.\n\n'
+              '۲. قطعات پازل را از پایین تصویر با انگشت کشیده و در جای مناسب آن در بالای تصویر قرار دهید.\n\n'
+              '۳. برای راهنمایی می توانید روی دکمه چشم در بالای صفحه کلیک کنید.\n\n'
+              '۴. برای دیدن قطعات در پایین صفحه، می توانید با دو انگشت صفحه زیرین را جابه جا کنید.',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontSize: 15, height: 1.8, color: Color(0xFF5D4037)),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('بستن', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // نمایش پنجره درباره ما با متن دقیق مدنظر شما
+  // نمایش پنجره درباره ما
   void _showAboutDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Center(
-          child: Text('درباره ما', style: TextStyle(fontWeight: FontWeight.bold)),
-        ),
-        content: const SingleChildScrollView(
-          child: Text(
-            'این نرم‌افزار حاصل ایده‌پردازی و تلاش جوانان هنرمندی است که در پاسخ به ندای رهبر عزیزمان مخلصانه و خلاقانه جهاد تبیین را شروع کرده و امیدوارند با هدایت اهل فن و بزرگان بتوانند محصولاتی جذاب، فرهنگی و مفید را برای شما فراهم کنند.\n\n'
-            'به دعای خیر شما و حمایت‌هایتان محتاجیم. با ما در شبکه‌های اجتماعی در ارتباط باشید.\n\n'
-            'اللهم عجل لولیک الفرج',
-            textAlign: TextAlign.justify,
-            style: TextStyle(height: 1.6),
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Center(
+            child: Text('درباره ما', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6B4226))),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('بستن'),
+          content: const SingleChildScrollView(
+            child: Text(
+              'این نرم‌افزار حاصل ایده‌پردازی و تلاش جوانان هنرمندی است که در پاسخ به ندای رهبر عزیزمان مخلصانه و خلاقانه جهاد تبیین را شروع کرده و امیدوارند با هدایت اهل فن و بزرگان بتوانند محصولاتی جذاب، فرهنگی و مفید را برای شما فراهم کنند.\n\n'
+              'به دعای خیر شما و حمایت‌هایتان محتاجیم. با ما در شبکه‌های اجتماعی در ارتباط باشید.\n\n'
+              'اللهم عجل لولیک الفرج',
+              textAlign: TextAlign.justify,
+              style: TextStyle(height: 1.7, color: Color(0xFF5D4037)),
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('بستن', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -222,55 +229,65 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('ارتباط با ما', textAlign: TextAlign.center),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('نظرات، پیشنهادات و انتقادات خود را برای ما بنویسید:'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: textController,
-              maxLines: 4,
-              textDirection: TextDirection.rtl,
-              decoration: const InputDecoration(
-                hintText: 'متن پیام شما...',
-                border: OutlineInputBorder(),
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('ارتباط با ما', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('نظرات، پیشنهادات و انتقادات خود را برای ما بنویسید:'),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: textController,
+                  maxLines: 4,
+                  textDirection: TextDirection.rtl,
+                  decoration: const InputDecoration(
+                    hintText: 'متن پیام شما...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('انصراف'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF8A00),
+                foregroundColor: Colors.white,
               ),
+              onPressed: () async {
+                final message = textController.text.trim();
+                if (message.isEmpty) return;
+
+                final Uri emailUri = Uri(
+                  scheme: 'mailto',
+                  path: 'm_khozani@yahoo.com',
+                  queryParameters: {
+                    'subject': 'نظر کاربر در بازی پازل',
+                    'body': message,
+                  },
+                );
+
+                Navigator.pop(ctx);
+                await _launchURL(emailUri.toString());
+              },
+              child: const Text('ارسال'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('انصراف'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final message = textController.text.trim();
-              if (message.isEmpty) return;
-
-              final Uri emailUri = Uri(
-                scheme: 'mailto',
-                path: 'm_khozani@yahoo.com',
-                queryParameters: {
-                  'subject': 'نظر کاربر در بازی پازل',
-                  'body': message,
-                },
-              );
-
-              Navigator.pop(ctx);
-              await _launchURL(emailUri.toString());
-            },
-            child: const Text('ارسال'),
-          ),
-        ],
       ),
     );
   }
 
-  // تابع ساخت کارت‌های زیبای منو با طراحی اختصاصی مشابه نمونه ارسالی
+  // تابع ساخت کارت‌های زیبای منو با طراحی اختصاصی
   Widget _buildMenuSheetItem({
     required IconData icon,
     required String title,
@@ -280,7 +297,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Material(
-        color: const Color(0xFF133E48), // رنگ پس‌زمینه کارت مشابه تصویر نمونه
+        color: const Color(0xFF133E48),
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -329,7 +346,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     );
   }
 
-  // نمایش برگه شیک از پایین به جای منوی ساده پیش‌فرض
+  // نمایش منوی کشویی پایین
   void _showMoreMenuSheet() {
     showModalBottomSheet(
       context: context,
