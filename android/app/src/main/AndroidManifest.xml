@@ -3,7 +3,27 @@
     
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    
+    <queries>
+        <!-- برای باز شدن سایت‌ها و لینک‌های وب -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+        <!-- برای باز شدن مستقیم اپلیکیشن ایتا -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="eitaa" />
+        </intent>
+        <!-- برای باز شدن فرم ایمیل -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
+    </queries>    
     <application
         android:label="بازی پازل شاد"
         android:name="${applicationName}"
