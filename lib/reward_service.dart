@@ -1,37 +1,53 @@
-import 'dart:typed_data';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:saver_gallery/saver_gallery.dart';
+import 'package:flutter/services.dart';
+import 'package:gal/gal.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RewardService {
+  static const String _unlockedKey = 'unlocked_reward_cards';
+
   static String getCardAssetPath(int level) {
-    int cardIndex = ((level - 1) % 10) + 1;
+    final cardIndex = ((level - 1) % 10) + 1;
     return 'assets/rewards/card_$cardIndex.png';
   }
 
   static Future<void> unlockReward(int level) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('reward_unlocked_$level', true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final unlocked = prefs.getStringList(_unlockedKey) ?? [];
+      final levelStr = level.toString();
+      if (!unlocked.contains(levelStr)) {
+        unlocked.add(levelStr);
+        await prefs.setStringList(_unlockedKey, unlocked);
+      }
+    } catch (_) {}
   }
 
   static Future<bool> isRewardUnlocked(int level) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('reward_unlocked_$level') ?? false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final unlocked = prefs.getStringList(_unlockedKey) ?? [];
+      return unlocked.contains(level.toString());
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<bool> saveCardToGallery(String assetPath) async {
     try {
-      final ByteData byteData = await rootBundle.load(assetPath);
-      final Uint8List bytes = byteData.buffer.asUint8List();
+      final hasAccess = await Gal.hasAccess();
+      if (!hasAccess) {
+        final granted = await Gal.requestAccess();
+        if (!granted) return false;
+      }
 
-      final result = await SaverGallery.saveImage(
+      final byteData = await rootBundle.load(assetPath);
+      final bytes = byteData.buffer.asUint8List();
+
+      await Gal.putImageBytes(
         bytes,
-        quality: 100,
-        fileName: 'kik_card_${DateTime.now().millisecondsSinceEpoch}.png',
-        androidRelativePath: 'Pictures/جورچین اندیشه',
-        skipIfExists: false,
+        name: 'hekmat_card_${DateTime.now().millisecondsSinceEpoch}',
       );
-      return result.isSuccess;
+      return true;
     } catch (_) {
       return false;
     }
