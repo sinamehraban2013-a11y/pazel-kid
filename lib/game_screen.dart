@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:gal/gal.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'asset_manager.dart';
@@ -325,7 +326,8 @@ class _GameScreenState extends State<GameScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        bool isSaving = false;
+        bool isSavingCard = false;
+        bool isSavingPuzzle = false;
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -374,20 +376,20 @@ class _GameScreenState extends State<GameScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       ),
-                      icon: isSaving
+                      icon: isSavingCard
                           ? const SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                             )
                           : const Icon(Icons.download_rounded),
-                      label: Text(isSaving ? "در حال ذخیره..." : "ذخیره کارت در گالری"),
-                      onPressed: isSaving
+                      label: Text(isSavingCard ? "در حال ذخیره..." : "ذخیره کارت در گالری"),
+                      onPressed: (isSavingCard || isSavingPuzzle)
                           ? null
                           : () async {
-                              setDialogState(() => isSaving = true);
+                              setDialogState(() => isSavingCard = true);
                               final ok = await RewardService.saveCardToGallery(cardPath);
-                              setDialogState(() => isSaving = false);
+                              setDialogState(() => isSavingCard = false);
 
                               if (ctx.mounted) {
                                 ScaffoldMessenger.of(ctx).showSnackBar(
@@ -403,6 +405,66 @@ class _GameScreenState extends State<GameScreen> {
                               }
                             },
                     ),
+                    if (currentImageBytes != null) ...[
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        ),
+                        icon: isSavingPuzzle
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Icon(Icons.image_rounded),
+                        label: Text(isSavingPuzzle ? "در حال ذخیره..." : "ذخیره عکس پازل در گالری"),
+                        onPressed: (isSavingCard || isSavingPuzzle)
+                            ? null
+                            : () async {
+                                setDialogState(() => isSavingPuzzle = true);
+                                bool ok = false;
+                                try {
+                                  final hasAccess = await Gal.hasAccess();
+                                  if (!hasAccess) {
+                                    final granted = await Gal.requestAccess();
+                                    if (granted) {
+                                      await Gal.putImageBytes(
+                                        currentImageBytes!,
+                                        name: 'puzzle_level_${currentLevel}_${DateTime.now().millisecondsSinceEpoch}',
+                                      );
+                                      ok = true;
+                                    }
+                                  } else {
+                                    await Gal.putImageBytes(
+                                      currentImageBytes!,
+                                      name: 'puzzle_level_${currentLevel}_${DateTime.now().millisecondsSinceEpoch}',
+                                    );
+                                    ok = true;
+                                  }
+                                } catch (_) {
+                                  ok = false;
+                                }
+                                setDialogState(() => isSavingPuzzle = false);
+
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        ok ? "عکس پازل با موفقیت در گالری ذخیره شد ✅" : "خطا در ذخیره عکس پازل ❌",
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      backgroundColor: ok ? Colors.green : Colors.red,
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
+                      ),
+                    ],
                   ],
                 ),
               ),
