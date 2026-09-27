@@ -132,7 +132,63 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     }
   }
 
-  // ۲. نمایش پنجره درباره ما با متن دقیق مدنظر شما
+  // متد هوشمند برای باز کردن مستقیم در اپلیکیشن ایتا یا هدایت به مرورگر
+  Future<void> _openEitaaChannel({
+    required String webUrl,
+    required String appUrl,
+  }) async {
+    final Uri appUri = Uri.parse(appUrl);
+    final Uri webUri = Uri.parse(webUrl);
+
+    try {
+      if (await canLaunchUrl(appUri)) {
+        await launchUrl(
+          appUri,
+          mode: LaunchMode.externalNonBrowserApplication,
+        );
+        return;
+      }
+    } catch (_) {}
+
+    await launchUrl(
+      webUri,
+      mode: LaunchMode.externalApplication,
+    );
+  }
+
+  // دیالوگ راهنمای بازی
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'راهنمای بازی',
+          textAlign: TextAlign.center,
+        ),
+        content: const SingleChildScrollView(
+          child: Text(
+            '۱. با شروع بازی یک موسیقی، نوا یا سخنرانی برای شما پخش می شود و زمان سنج که مدت آن را نمایش می دهد فعال می شود. شما تا پایان مدت پخش صدا می توانید پازل را تکمیل کنید و کارت هدیه مرحله را دریافت کنید.\n\n'
+            '۲. قطعات پازل را از پایین تصویر با انگشت کشیده و در جای مناسب آن در بالای تصویر قرار دهید.\n\n'
+            '۳. برای راهنمایی می توانید روی دکمه چشم در بالای صفحه کلیک کنید.\n\n'
+            '۴. برای دیدن قطعات در پایین صفحه، می توانید با دو انگشت صفحه زیرین را جابه جا کنید.',
+            textAlign: TextAlign.right,
+            style: TextStyle(fontSize: 15, height: 1.8),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('بستن'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // نمایش پنجره درباره ما با متن دقیق مدنظر شما
   void _showAboutDialog() {
     showDialog(
       context: context,
@@ -160,7 +216,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     );
   }
 
-  // ۳. نمایش فرم ارتباط با ما و اتصال مستقیم به ایمیل
+  // نمایش فرم ارتباط با ما و اتصال مستقیم به ایمیل
   void _showContactDialog() {
     final TextEditingController textController = TextEditingController();
 
@@ -214,20 +270,173 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     );
   }
 
-  Widget _buildLinkItem(String title, String url) {
+  // تابع ساخت کارت‌های زیبای منو با طراحی اختصاصی مشابه نمونه ارسالی
+  Widget _buildMenuSheetItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: InkWell(
-        onTap: () => _launchURL(url),
-        child: Text(
-          '$title $url',
-          style: const TextStyle(
-            color: Colors.blue,
-            fontSize: 13,
-            decoration: TextDecoration.underline,
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Material(
+        color: const Color(0xFF133E48), // رنگ پس‌زمینه کارت مشابه تصویر نمونه
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+            child: Row(
+              textDirection: TextDirection.rtl,
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: const Color(0xFF1D5A68),
+                  child: Icon(icon, color: const Color(0xFF4EE3B1), size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          color: Color(0xFFB0D5DC),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  // نمایش برگه شیک از پایین به جای منوی ساده پیش‌فرض
+  void _showMoreMenuSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF0C2B32),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  _buildMenuSheetItem(
+                    icon: Icons.info_outline_rounded,
+                    title: 'درباره ما',
+                    subtitle: 'توضیحات و اهداف گروه سازنده',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _showAboutDialog();
+                    },
+                  ),
+                  _buildMenuSheetItem(
+                    icon: Icons.send_rounded,
+                    title: 'کانال هزاران فکر عمیق استاد شیروی',
+                    subtitle: '@shiravi_ir',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _openEitaaChannel(
+                        webUrl: 'https://eitaa.com/shiravi_ir',
+                        appUrl: 'eitaa://shiravi_ir',
+                      );
+                    },
+                  ),
+                  _buildMenuSheetItem(
+                    icon: Icons.question_answer_rounded,
+                    title: 'کانال پاسخ به پرسش‌های سخت',
+                    subtitle: 'گروه پرسش و پاسخ در پیام‌رسان بله',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _launchURL('https://ble.ir/join/NGMyZGI5OT');
+                    },
+                  ),
+                  _buildMenuSheetItem(
+                    icon: Icons.menu_book_rounded,
+                    title: 'کانال مقالات علمی، آموزشی، فرهنگی',
+                    subtitle: '@maghaleh_shiravi',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _openEitaaChannel(
+                        webUrl: 'https://eitaa.com/maghaleh_shiravi',
+                        appUrl: 'eitaa://maghaleh_shiravi',
+                      );
+                    },
+                  ),
+                  _buildMenuSheetItem(
+                    icon: Icons.auto_stories_rounded,
+                    title: 'کانال کتب داستان، علمی و مذهبی',
+                    subtitle: '@ketab_shiravi',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _openEitaaChannel(
+                        webUrl: 'https://eitaa.com/ketab_shiravi',
+                        appUrl: 'eitaa://ketab_shiravi',
+                      );
+                    },
+                  ),
+                  _buildMenuSheetItem(
+                    icon: Icons.language_rounded,
+                    title: 'سایت استاد دکتر شیروی',
+                    subtitle: 'www.shiravi.org',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _launchURL('https://www.shiravi.org');
+                    },
+                  ),
+                  _buildMenuSheetItem(
+                    icon: Icons.mail_outline_rounded,
+                    title: 'ارتباط با ما',
+                    subtitle: 'ارسال پیشنهادات و نظرات از طریق ایمیل',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _showContactDialog();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -235,7 +444,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF6E5),
-appBar: AppBar(
+      appBar: AppBar(
         title: Text(
           'قهرمان: ${widget.playerName}',
           style: const TextStyle(fontWeight: FontWeight.bold),
@@ -245,50 +454,15 @@ appBar: AppBar(
         centerTitle: true,
         automaticallyImplyLeading: false,
         actions: [
-          PopupMenuButton<String>(
+          IconButton(
+            icon: const Icon(Icons.help_outline_rounded),
+            tooltip: 'راهنمای بازی',
+            onPressed: _showHelpDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.more_vert_rounded),
             tooltip: 'منو',
-            onSelected: (value) {
-              if (value == 'about') {
-                _showAboutDialog();
-              } else if (value == 'contact') {
-                _showContactDialog();
-              } else {
-                _launchURL(value);
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem(
-                value: 'about',
-                child: Text('درباره ما'),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'https://eitaa.com/shiravi_ir',
-                child: Text('کانال هزاران فکر عمیق استاد شیروی'),
-              ),
-              const PopupMenuItem(
-                value: 'https://ble.ir/join/NGMyZGI5OT',
-                child: Text('کانال پاسخ به پرسش‌های سخت'),
-              ),
-              const PopupMenuItem(
-                value: 'https://eitaa.com/maghaleh_shiravi',
-                child: Text('کانال مقالات علمی، آموزشی، فرهنگی'),
-              ),
-              const PopupMenuItem(
-                value: 'https://eitaa.com/ketab_shiravi',
-                child: Text('کانال کتب داستان، علمی و مذهبی'),
-              ),
-              const PopupMenuItem(
-                value: 'https://www.shiravi.org',
-                child: Text('سایت استاد دکتر شیروی'),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'contact',
-                child: Text('ارتباط با ما'),
-              ),
-            ],
+            onPressed: _showMoreMenuSheet,
           ),
         ],
       ),
