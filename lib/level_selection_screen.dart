@@ -218,7 +218,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: InkWell(
-        onTap: () => _launchUrl(url),
+        onTap: () => _launchURL(url),
         child: Text(
           '$title $url',
           style: const TextStyle(
