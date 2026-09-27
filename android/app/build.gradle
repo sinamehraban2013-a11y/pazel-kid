@@ -26,8 +26,16 @@ apply plugin: 'kotlin-android'
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
-    namespace "com.example.puzzle_kids_game"
-    compileSdkVersion 35
+    namespace "com.example.puzzle_kids_game" // نام پکیج خود را چک کنید
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.example.puzzle_kids_game"
+        minSdkVersion 23
+        targetSdkVersion 35
+        versionCode 1
+        versionName "1.0"
+    }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
