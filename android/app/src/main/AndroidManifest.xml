@@ -26,4 +26,20 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+ <queries>
+    <!-- برای باز کردن لینک‌های وبسایت و پیام‌رسان‌ها -->
+    <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <data android:scheme="https" />
+    </intent>
+    <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <data android:scheme="http" />
+    </intent>
+    <!-- برای فراخوانی برنامه ایمیل -->
+    <intent>
+        <action android:name="android.intent.action.SENDTO" />
+        <data android:scheme="mailto" />
+    </intent>
+</queries>   
 </manifest>
