@@ -30,14 +30,21 @@ tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
 
-// حل مشکل پکیج gal و تزریق compileSdkVersion به کتابخانه‌ها
-subprojects {
-    afterEvaluate { project ->
+// حل مشکل پکیج gal و تنظیم سازگار با نسخه گریدل ۸
+subprojects { project ->
+    def configureAndroid = {
         if (project.hasProperty("android")) {
-            android {
+            project.android {
                 compileSdkVersion 35
                 buildToolsVersion "35.0.0"
             }
+        }
+    }
+    if (project.state.executed) {
+        configureAndroid()
+    } else {
+        project.afterEvaluate {
+            configureAndroid()
         }
     }
 }
