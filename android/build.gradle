@@ -22,25 +22,23 @@ rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
+
+// تزریق ایمن SDK 35 به تمام ماژول‌ها و پلاگین‌ها (جهت جلوگیری از خطای ۳۴ و ۳۵)
+subprojects { subproject ->
+    subproject.plugins.whenPluginAdded { plugin ->
+        if (plugin.class.name.startsWith("com.android.build.gradle")) {
+            subproject.android {
+                compileSdkVersion 35
+                buildToolsVersion "35.0.0"
+            }
+        }
+    }
+}
+
 subprojects {
     project.evaluationDependsOn(':app')
 }
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
-}
-
-subprojects { project ->
-    project.plugins.withId('com.android.library') {
-        project.android {
-            compileSdkVersion 35
-            buildToolsVersion "35.0.0"
-        }
-    }
-    project.plugins.withId('com.android.application') {
-        project.android {
-            compileSdkVersion 35
-            buildToolsVersion "35.0.0"
-        }
-    }
 }
