@@ -30,18 +30,13 @@ tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
 
-// حل مشکل پکیج gal و تنظیم صحیح compileSdkVersion 35 بدون تداخل با چرخه گریدل
-subprojects { project ->
-    project.plugins.withId("com.android.application") {
-        project.android {
-            compileSdkVersion 35
-            buildToolsVersion "35.0.0"
-        }
-    }
-    project.plugins.withId("com.android.library") {
-        project.android {
-            compileSdkVersion 35
-            buildToolsVersion "35.0.0"
+subprojects { subproject ->
+    subproject.plugins.whenPluginAdded { plugin ->
+        if (plugin.class.name.startsWith("com.android.build.gradle")) {
+            subproject.android {
+                compileSdkVersion 35
+                buildToolsVersion "35.0.0"
+            }
         }
     }
 }
