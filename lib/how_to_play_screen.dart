@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'player_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'level_selection_screen.dart';
 
@@ -118,25 +119,37 @@ class HowToPlayScreen extends StatelessWidget {
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                onPressed: () async {
-                  final age = ageController.text.trim();
-                  if (age.isNotEmpty) {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setString('player_name', playerName);
-                    await prefs.setString('player_age', age);
+onPressed: () async {
+  final rawAge = ageController.text.trim();
+  if (rawAge.isEmpty) return;
 
-                    if (context.mounted) {
-                      Navigator.pop(ctx);
-                      // انتقال مستقیم به صفحه مراحلی که کدش را برایم فرستادید
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => LevelSelectionScreen(playerName: playerName),
-                        ),
-                      );
-                    }
-                  }
-                },
+  // تبدیل ارقام فارسی و عربی به انگلیسی
+  final normalizedAge = rawAge
+      .replaceAllMapped(
+        RegExp(r'[۰-۹]'),
+        (m) => String.fromCharCode(m[0]!.codeUnitAt(0) - 0x06F0 + 0x30),
+      )
+      .replaceAllMapped(
+        RegExp(r'[٠-٩]'),
+        (m) => String.fromCharCode(m[0]!.codeUnitAt(0) - 0x0660 + 0x30),
+      );
+
+  final age = int.tryParse(normalizedAge);
+  if (age == null) return;
+
+  // ذخیره استاندارد و صحیح از طریق سرویس بازیکن
+  await PlayerService.saveProfile(playerName, age);
+
+  if (context.mounted) {
+    Navigator.pop(ctx);
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LevelSelectionScreen(playerName: playerName),
+      ),
+    );
+  }
+},
                 child: const Text('شروع بازی!', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
