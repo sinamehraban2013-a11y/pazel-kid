@@ -391,7 +391,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   _buildMenuSheetItem(
                     icon: Icons.info_outline_rounded,
                     title: 'درباره ما',
-                    subtitle: 'توضیحات و اهداف گروه سازنده',
+                    subtitle: 'با ما بیشتر آشنا شوید',
                     iconColor: const Color(0xFF6B4226),
                     iconBgColor: const Color(0xFFF3E7DC),
                     onTap: () {
@@ -401,8 +401,8 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                   _buildMenuSheetItem(
                     icon: Icons.send_rounded,
-                    title: 'کانال هزاران فکر عمیق استاد شیروی',
-                    subtitle: '@shiravi_ir',
+                    title: 'کانال هزاران فکر عمیق استاد دکترشیروی',
+                    subtitle: 'کلیک کنید، سپس روی دکمه پیوستن بزنید',
                     iconColor: const Color(0xFFFF8A00),
                     iconBgColor: const Color(0xFFFFF0DC),
                     onTap: () {
@@ -415,8 +415,8 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                   _buildMenuSheetItem(
                     icon: Icons.question_answer_rounded,
-                    title: 'کانال پاسخ به پرسش‌های سخت',
-                    subtitle: 'گروه پرسش و پاسخ در پیام‌رسان بله',
+                    title: 'گروه پاسخ به پرسش‌های سخت استاد دکتر شیروی',
+                    subtitle: 'کلیک کنید، سپس عضو گروه شوید',
                     iconColor: const Color(0xFF00897B),
                     iconBgColor: const Color(0xFFE0F2F1),
                     onTap: () {
@@ -426,8 +426,8 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                   _buildMenuSheetItem(
                     icon: Icons.menu_book_rounded,
-                    title: 'کانال مقالات علمی، آموزشی، فرهنگی',
-                    subtitle: '@maghaleh_shiravi',
+                    title: 'کانال بروزترین مقالات فرهنگی، آموزشی',
+                    subtitle: 'کلیک کنید، سپس روی دکمه پیوستن بزنید',
                     iconColor: const Color(0xFF2E7D32),
                     iconBgColor: const Color(0xFFE8F5E9),
                     onTap: () {
@@ -440,8 +440,8 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                   _buildMenuSheetItem(
                     icon: Icons.auto_stories_rounded,
-                    title: 'کانال کتب داستان، علمی و مذهبی',
-                    subtitle: '@ketab_shiravi',
+                    title: 'کانال جدیدترین کتب تالیفی گروه محفل انس',
+                    subtitle: 'کلیک کنید، سپس روی دکمه پیوستن بزنید',
                     iconColor: const Color(0xFF8E24AA),
                     iconBgColor: const Color(0xFFF3E5F5),
                     onTap: () {
@@ -454,8 +454,8 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                   _buildMenuSheetItem(
                     icon: Icons.language_rounded,
-                    title: 'سایت استاد دکتر شیروی',
-                    subtitle: 'www.shiravi.org',
+                    title: 'سایت رسمی استاد دکتر شیروی',
+                    subtitle: 'به دنیایی از هزاران شگفتی وارد شوید',
                     iconColor: const Color(0xFF0288D1),
                     iconBgColor: const Color(0xFFE1F5FE),
                     onTap: () {
