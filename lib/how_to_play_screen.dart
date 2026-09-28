@@ -1,7 +1,6 @@
 
 import 'package:flutter/material.dart';
 import 'player_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'level_selection_screen.dart';
 
 class HowToPlayScreen extends StatelessWidget {
