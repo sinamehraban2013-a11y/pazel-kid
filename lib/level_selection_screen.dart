@@ -132,6 +132,30 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     }
   }
 
+   Future<bool> _confirmExit() async {
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('خروج از برنامه؟'),
+          content: const Text('آیا مطمئن هستید که می‌خواهید خارج شوید؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('ادامه بازی'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('خروج'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return shouldExit ?? false;
+  } 
   // متد هوشمند برای باز کردن مستقیم در اپلیکیشن ایتا یا هدایت به مرورگر
   Future<void> _openEitaaChannel({
     required String webUrl,
@@ -485,7 +509,9 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: _confirmExit,
+      child: Scaffold(
       backgroundColor: const Color(0xFFFFF6E5),
       appBar: AppBar(
         title: Text(
@@ -658,7 +684,9 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                 ),
               ],
-            ),
+          ),
+        ),
+      ),
     );
   }
 }
