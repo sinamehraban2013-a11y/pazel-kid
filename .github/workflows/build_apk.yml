@@ -34,7 +34,17 @@ jobs:
           # 1. افزودن مجوز اینترنت به مانیفست
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
           
-          # 2. تنظیم compileSdk به 35 و minSdk به 23 جهت سازگاری کامل پکیج‌ها (مثل gal)
+          # 2. تنظیم نام نمایشی برنامه به جورچین
+          python3 -c "
+          p = 'android/app/src/main/AndroidManifest.xml'
+          with open(p, 'r', encoding='utf-8') as f:
+              c = f.read()
+          c = c.replace('android:label=\"puzzle_kids_game\"', 'android:label=\"جورچین\"')
+          with open(p, 'w', encoding='utf-8') as f:
+              f.write(c)
+          "
+          
+          # 3. تنظیم compileSdk به 35 و minSdk به 23 جهت سازگاری کامل پکیج‌ها (مثل gal)
           sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/g' android/app/build.gradle || true
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 35/g' android/app/build.gradle || true
           sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 35/g' android/app/build.gradle || true
