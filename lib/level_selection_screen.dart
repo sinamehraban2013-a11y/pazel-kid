@@ -139,7 +139,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           title: const Text('خروج از برنامه؟'),
-          content: const Text('آیا مطمئن هستید که می‌خواهید خارج شوید؟'),
+          content: const Text('مشتاق دیدار دوباره شما هستیم'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -230,7 +230,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
           ),
           content: const SingleChildScrollView(
             child: Text(
-              'این نرم‌افزار حاصل ایده‌پردازی و تلاش جوانان هنرمندی است که در پاسخ به ندای رهبر عزیزمان مخلصانه و خلاقانه جهاد تبیین را شروع کرده و امیدوارند با هدایت اهل فن و بزرگان بتوانند محصولاتی جذاب، فرهنگی و مفید را برای شما فراهم کنند.\n\n'
+              'این نرم‌افزار حاصل ایده‌پردازی و کوشش جوانان هنرمندی است که در پاسخ به ندای رهبر شهید انقلاب و در راستای ایجاد تمدن ایرانی-اسلامی، با تلاشی مخلصانه و خلاقانه، جهاد تبیین را شروع کرده و امیدواریم با هدایت اهل فن و حمایت شما، بتوان محصولاتی جذاب، فرهنگی و مفیدی برای شما فراهم کنیم.\n\n'
               'به دعای خیر شما و حمایت‌هایتان محتاجیم. با ما در شبکه‌های اجتماعی در ارتباط باشید.\n\n'
               'اللهم عجل لولیک الفرج',
               textAlign: TextAlign.justify,
@@ -264,7 +264,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('نظرات، پیشنهادات و انتقادات خود را برای ما بنویسید:'),
+                const Text('نظرات، پیشنهادات و انتقادات خود را برای ما نوشته و ارسال کنید:'),
                 const SizedBox(height: 12),
                 TextField(
                   controller: textController,
@@ -426,7 +426,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                   _buildMenuSheetItem(
                     icon: Icons.send_rounded,
-                    title: 'کانال هزاران فکر عمیق استاد دکترشیروی',
+                    title: 'کانال هزاران فکر عمیق دکتر شیروی',
                     subtitle: 'کلیک کنید، سپس روی دکمه پیوستن بزنید',
                     iconColor: const Color(0xFFFF8A00),
                     iconBgColor: const Color(0xFFFFF0DC),
@@ -440,7 +440,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                   _buildMenuSheetItem(
                     icon: Icons.question_answer_rounded,
-                    title: 'گروه پاسخ به پرسش‌های سخت استاد دکتر شیروی',
+                    title: 'گروه پاسخ به پرسش‌های سخت دکتر شیروی',
                     subtitle: 'کلیک کنید، سپس عضو گروه شوید',
                     iconColor: const Color(0xFF00897B),
                     iconBgColor: const Color(0xFFE0F2F1),
@@ -451,7 +451,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                   _buildMenuSheetItem(
                     icon: Icons.menu_book_rounded,
-                    title: 'کانال بروزترین مقالات فرهنگی، آموزشی',
+                    title: 'کانال بروزترین مقالات فرهنگی و آموزشی',
                     subtitle: 'کلیک کنید، سپس روی دکمه پیوستن بزنید',
                     iconColor: const Color(0xFF2E7D32),
                     iconBgColor: const Color(0xFFE8F5E9),
@@ -465,7 +465,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                   _buildMenuSheetItem(
                     icon: Icons.auto_stories_rounded,
-                    title: 'کانال جدیدترین کتب تالیفی گروه محفل انس',
+                    title: 'کانال جدیدترین کتب تالیفی گروه محفل اُنس',
                     subtitle: 'کلیک کنید، سپس روی دکمه پیوستن بزنید',
                     iconColor: const Color(0xFF8E24AA),
                     iconBgColor: const Color(0xFFF3E5F5),
@@ -491,7 +491,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   _buildMenuSheetItem(
                     icon: Icons.mail_outline_rounded,
                     title: 'ارتباط با ما',
-                    subtitle: 'ارسال پیشنهادات و نظرات از طریق ایمیل',
+                    subtitle: 'ارسال پیشنهادات و نظرات شما از طریق ایمیل',
                     iconColor: const Color(0xFFE65100),
                     iconBgColor: const Color(0xFFFFE0B2),
                     onTap: () {
