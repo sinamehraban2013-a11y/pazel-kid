@@ -1,6 +1,10 @@
-name: Build Flutter APK
+name: Build Android APK
 
 on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -8,13 +12,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Set up Flutter
@@ -22,21 +25,9 @@ jobs:
         with:
           flutter-version: '3.24.3'
           channel: 'stable'
-          cache: true
-
-      - name: Fix Android SDK Platforms
-        run: |
-          rm -rf /usr/local/lib/android/sdk/platforms/android-35 || true
-
-      - name: Add Internet Permission to Manifest
-        run: |
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"\/>' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Generate App Icons
-        run: dart run flutter_launcher_icons
 
       - name: Build APK
         run: flutter build apk --release
