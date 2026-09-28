@@ -139,11 +139,11 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           title: const Text('خروج از برنامه؟'),
-          content: const Text('مشتاق دیدار دوباره شما هستیم'),
+          content: const Text('مشتاق دیدار دوباره‌ی شما هستیم'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('ادامه بازی'),
+              child: const Text('ادامه‌ی بازی'),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
@@ -197,11 +197,11 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
           ),
           content: const SingleChildScrollView(
             child: Text(
-              '۱. با شروع بازی یک موسیقی، نوا یا سخنرانی برای شما پخش شده و زمان سنج، که مدت آن را نمایش می‌دهد فعال می‌شود. شما تا پایان مدت پخش صدا می‌توانید پازل را تکمیل کنید و کارت هدیه مرحله را دریافت کنید. پازلها و نواها به طور مرتب بروزرسانی می‌شود.\n'
+              '۱. با شروع بازی یک موسیقی، نوا یا سخنرانی برای شما پخش شده و زمان سنج، که مدت آن را نمایش می‌دهد فعال می‌شود. شما تا پایان مدت پخش صدا می‌توانید پازل را تکمیل کنید و کارت هدیه‌ی مرحله را دریافت کنید. پازل‌ها و نواها به طور مرتب به‌روزرسانی می‌شود.\n'
               '۲. قطعات پازل را از پایین تصویر با انگشت کشیده و در جای مناسب آن در بالای تصویر قرار دهید.\n'
-              '۳. برای راهنمایی می توانید روی دکمه چشم در بالای صفحه کلیک کنید.\n'
-              '۴. برای دیدن قطعات در پایین صفحه، می توانید با دو انگشت صفحه زیرین را پیمایش کنید.\n'
-              '۵. برای خروج از بازی، دکمه بازگشت گوشی را لمس کنید تا پیام تأیید خروج نمایش داده شود.',
+              '۳. برای راهنمایی می‌توانید روی دکمه‌ی چشم در بالای صفحه کلیک کنید.\n'
+              '۴. برای دیدن قطعات بیشتر در پایین صفحه، می‌توانید با دو انگشت، صفحه‌ی زیرین را پیمایش کنید.\n'
+              '۵. برای خروج از بازی، دکمه‌ی بازگشت گوشی را لمس کنید تا پیام تأیید خروج نمایش داده شود.',
               textAlign: TextAlign.right,
               style: TextStyle(fontSize: 15, height: 1.8, color: Color(0xFF5D4037)),
             ),
@@ -230,7 +230,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
           ),
           content: const SingleChildScrollView(
             child: Text(
-              'این نرم‌افزار حاصل ایده‌پردازی و کوشش جوانان هنرمندی است که در پاسخ به ندای رهبر شهید انقلاب و در راستای ایجاد تمدن ایرانی-اسلامی، با تلاشی مخلصانه و خلاقانه، جهاد تبیین را شروع کرده و امیدواریم با هدایت اهل فن و حمایت شما، بتوان محصولاتی جذاب، فرهنگی و مفیدی برای شما فراهم کنیم.\n\n'
+              'این نرم‌افزار حاصل ایده‌پردازی و کوشش جوانان هنرمندی است که در پاسخ به ندای رهبر شهید انقلاب و در راستای ایجاد تمدن ایرانی-اسلامی، با تلاشی مخلصانه و خلاقانه، جهاد تبیین را شروع کرده‌اند. امیدواریم با هدایت اهل فن و حمایت شما، بتوانیم محصولاتی جذاب، فرهنگی و مفید برای شما فراهم کنیم.\n\n'
               'به دعای خیر شما و حمایت‌هایتان محتاجیم. با ما در شبکه‌های اجتماعی در ارتباط باشید.\n\n'
               'اللهم عجل لولیک الفرج',
               textAlign: TextAlign.justify,
@@ -415,7 +415,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                   _buildMenuSheetItem(
                     icon: Icons.info_outline_rounded,
-                    title: 'درباره ما',
+                    title: 'درباره‌ی ما',
                     subtitle: 'با ما بیشتر آشنا شوید',
                     iconColor: const Color(0xFF6B4226),
                     iconBgColor: const Color(0xFFF3E7DC),
@@ -427,7 +427,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   _buildMenuSheetItem(
                     icon: Icons.send_rounded,
                     title: 'کانال هزاران فکر عمیق دکتر شیروی',
-                    subtitle: 'کلیک کنید، سپس روی دکمه پیوستن بزنید',
+                    subtitle: 'کلیک کنید، سپس روی دکمه‌ی پیوستن بزنید',
                     iconColor: const Color(0xFFFF8A00),
                     iconBgColor: const Color(0xFFFFF0DC),
                     onTap: () {
@@ -452,7 +452,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   _buildMenuSheetItem(
                     icon: Icons.menu_book_rounded,
                     title: 'کانال بروزترین مقالات فرهنگی و آموزشی',
-                    subtitle: 'کلیک کنید، سپس روی دکمه پیوستن بزنید',
+                    subtitle: 'کلیک کنید، سپس روی دکمه‌ی پیوستن بزنید',
                     iconColor: const Color(0xFF2E7D32),
                     iconBgColor: const Color(0xFFE8F5E9),
                     onTap: () {
@@ -465,8 +465,8 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                   _buildMenuSheetItem(
                     icon: Icons.auto_stories_rounded,
-                    title: 'کانال جدیدترین کتب تالیفی گروه محفل اُنس',
-                    subtitle: 'کلیک کنید، سپس روی دکمه پیوستن بزنید',
+                    title: 'کانال جدیدترین کتب تالیفیِ گروه محفل اُنس',
+                    subtitle: 'کلیک کنید، سپس روی دکمه‌ی پیوستن بزنید',
                     iconColor: const Color(0xFF8E24AA),
                     iconBgColor: const Color(0xFFF3E5F5),
                     onTap: () {
