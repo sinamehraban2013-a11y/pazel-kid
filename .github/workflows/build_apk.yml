@@ -1,11 +1,7 @@
 name: Build Android APK
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+  workflow_dispatch: # فقط اجرای دستی توسط شما
 
 jobs:
   build:
