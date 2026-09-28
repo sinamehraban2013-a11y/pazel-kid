@@ -30,17 +30,17 @@ tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
 
-// روش استاندارد و بدون کرش برای یکپارچه‌سازی تمام پلاگین‌ها (از جمله gal) روی SDK 35
 subprojects { project ->
-    project.afterEvaluate {
-        def androidExtension = project.extensions.findByName("android")
-        if (androidExtension != null) {
-            if (androidExtension.hasProperty("compileSdkVersion")) {
-                androidExtension.compileSdkVersion = 35
-            }
-            if (androidExtension.hasProperty("buildToolsVersion")) {
-                androidExtension.buildToolsVersion = "35.0.0"
-            }
+    project.plugins.withId('com.android.library') {
+        project.android {
+            compileSdkVersion 35
+            buildToolsVersion "35.0.0"
+        }
+    }
+    project.plugins.withId('com.android.application') {
+        project.android {
+            compileSdkVersion 35
+            buildToolsVersion "35.0.0"
         }
     }
 }
