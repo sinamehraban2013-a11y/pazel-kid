@@ -30,12 +30,16 @@ tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
 
-subprojects { subproject ->
-    subproject.plugins.whenPluginAdded { plugin ->
-        if (plugin.class.name.startsWith("com.android.build.gradle")) {
-            subproject.android {
-                compileSdkVersion 35
-                buildToolsVersion "35.0.0"
+// روش استاندارد و بدون کرش برای یکپارچه‌سازی تمام پلاگین‌ها (از جمله gal) روی SDK 35
+subprojects { project ->
+    project.afterEvaluate {
+        def androidExtension = project.extensions.findByName("android")
+        if (androidExtension != null) {
+            if (androidExtension.hasProperty("compileSdkVersion")) {
+                androidExtension.compileSdkVersion = 35
+            }
+            if (androidExtension.hasProperty("buildToolsVersion")) {
+                androidExtension.buildToolsVersion = "35.0.0"
             }
         }
     }
