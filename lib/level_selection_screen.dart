@@ -685,8 +685,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                   ),
                 ),
               ],
-          ),
-        ),
+            ),
       ),
     );
   }
