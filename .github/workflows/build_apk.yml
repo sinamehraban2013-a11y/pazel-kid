@@ -28,11 +28,6 @@ jobs:
         run: |
           rm -rf /usr/local/lib/android/sdk/platforms/android-35 || true
 
-      - name: Recreate Clean Android Structure
-        run: |
-          rm -rf android
-          flutter create . --org com.example --project-name puzzle_kids_game --platforms=android
-
       - name: Add Internet Permission to Manifest
         run: |
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"\/>' android/app/src/main/AndroidManifest.xml
