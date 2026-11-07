@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path_provider/path_provider.dart';
 
 typedef ProgressCallback = void Function(int received, int total);
@@ -45,7 +46,11 @@ class AssetManager {
           final String fileType = item['type'] ?? '';
           final String fileId = item['id'] ?? '';
           final String name = (item['name'] ?? '').toString().toLowerCase();
-          String downloadUrl = item['downloadUrl'] ?? "https://drive.google.com/uc?export=download&id=$fileId";
+          // در نسخه وب فقط این آدرس هدر CORS دارد
+          String downloadUrl = item['downloadUrl'] ??
+              (kIsWeb
+                  ? "https://drive.usercontent.google.com/download?id=$fileId&export=download"
+                  : "https://drive.google.com/uc?export=download&id=$fileId");
 
           if (filterType == 'image') {
             if (fileType == 'image' ||
@@ -133,6 +138,10 @@ class AssetManager {
 
         final random = Random();
         final String selectedAudioUrl = cachedAudioUrls[random.nextInt(cachedAudioUrls.length)];
+        if (kIsWeb) {
+          // در وب فایل ذخیره نمی‌شود؛ خود آدرس مستقیم پخش می‌شود
+          return selectedAudioUrl;
+        }
         final dir = await getTemporaryDirectory();
         final String localAudioPath = "${dir.path}/puzzle_aud_${DateTime.now().millisecondsSinceEpoch}.mp3";
 
