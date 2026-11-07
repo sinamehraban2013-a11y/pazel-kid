@@ -173,7 +173,7 @@ class _GameScreenState extends State<GameScreen> {
       });
 
       // ۴. اجرای صوت
-      if (currentAudioPath != null) {
+      if (currentAudioPath != null && (!kIsWeb || AssetManager.webAudioBytes != null)) {
         await _audioPlayer.play(kIsWeb
             ? BytesSource(AssetManager.webAudioBytes!)
             : DeviceFileSource(currentAudioPath!));
