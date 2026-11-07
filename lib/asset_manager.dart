@@ -29,6 +29,21 @@ class AssetManager {
   static List<String> cachedAudioUrls = [];
 
   static Future<List<String>> _fetchFolderFileUrls(String folderId, String filterType) async {
+    if (kIsWeb) {
+      // در وب، فایل‌ها هنگام بیلد کنار برنامه (همان دامنه) قرار گرفته‌اند
+      try {
+        final dir = filterType == 'image' ? 'images' : 'audio';
+        final r = await _dio.get(Uri.base.resolve('$dir/list.json').toString());
+        dynamic raw = r.data;
+        if (raw is String) raw = jsonDecode(raw);
+        return (raw as List)
+            .map((e) => Uri.base.resolve('$dir/$e').toString())
+            .toList();
+      } catch (e) {
+        lastListError = e.toString();
+        return [];
+      }
+    }
     try {
       final response = await _dio.get(
         scriptBaseUrl,
@@ -148,19 +163,7 @@ class AssetManager {
 
         final random = Random();
         final String selectedAudioUrl = cachedAudioUrls[random.nextInt(cachedAudioUrls.length)];
-        if (kIsWeb) {
-          try {
-            final r = await _dio.get<List<int>>(
-              selectedAudioUrl,
-              options: Options(responseType: ResponseType.bytes),
-              onReceiveProgress: onProgress,
-            );
-            webAudioBytes = Uint8List.fromList(r.data!);
-          } catch (_) {
-            webAudioBytes = null; // بازی بدون صدا ادامه می‌یابد
-          }
-          return selectedAudioUrl;
-        }
+        if (kIsWeb) return selectedAudioUrl; // پخش مستقیم از همان دامنه
         final dir = await getTemporaryDirectory();
         final String localAudioPath = "${dir.path}/puzzle_aud_${DateTime.now().millisecondsSinceEpoch}.mp3";
 
