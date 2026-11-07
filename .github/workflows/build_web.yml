@@ -39,7 +39,10 @@ jobs:
           sdk = ('<script src="https://developer.eitaa.com/eitaa-web-app.js"></script>\n'
                  '  <script>try{var w=window.Eitaa&&window.Eitaa.WebApp;if(w){w.ready();w.expand();}}catch(e){}</script>\n')
           c = c.replace('<head>', '<head>\n  ' + sdk, 1)
-          c = c.replace('<html>', '<html lang="fa" dir="rtl">', 1)
+          sdk2 = ('<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">\n'
+                  '  <style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;direction:ltr}</style>\n')
+          c = c.replace('<head>', '<head>\n  ' + sdk2, 1)
+          c = c.replace('<html>', '<html lang="fa">', 1)
           open(p, 'w', encoding='utf-8').write(c)
           PY
 
