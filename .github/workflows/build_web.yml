@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+  schedule:
+    - cron: '30 2 * * *'  # هر روز ۰۲:۳۰ UTC (حدود ۶:۰۰ صبح تهران)
 
 permissions:
   contents: read
@@ -45,6 +47,47 @@ jobs:
 
       - name: Build web
         run: flutter build web --release --base-href /pazel-kid/
+
+      - name: Bundle audio and images from Google Drive
+        run: |
+          python3 - <<'PY'
+          import json, os, time, urllib.request as u
+          API = "https://script.google.com/macros/s/AKfycbwBLyDbJu78M_nxaZtfcfFtd6DSMp6yl3Lu2lPOPwimuDynqGN8cTvZr4JpN3eJhxGA/exec?folderId="
+          JOBS = [
+            ("audio",  "1tFPotXvU0NxyR8Jqsh8SPI3DZakKps08", (".mp3", ".m4a", ".wav", ".ogg"), 5),
+            ("images", "1CHlj2vLFuc-JjHAKREjcQ-YfZVO3ueBh", (".jpg", ".jpeg", ".png", ".webp"), 5),
+          ]
+          MAX_TOTAL = 400 * 1024 * 1024
+          total = 0
+          for folder, fid, exts, min_count in JOBS:
+              items = json.load(u.urlopen(API + fid, timeout=90))
+              os.makedirs("build/web/" + folder, exist_ok=True)
+              names = []
+              for i, f in enumerate(items):
+                  n = f.get("name", "").lower()
+                  if not n.endswith(exts):
+                      continue
+                  ext = os.path.splitext(n)[1]
+                  out = "f%d%s" % (i, ext)
+                  url = "https://drive.usercontent.google.com/download?id=%s&export=download&confirm=t" % f["id"]
+                  for t in range(3):
+                      try:
+                          data = u.urlopen(url, timeout=180).read()
+                          if len(data) > 5000 and not data.lstrip().startswith(b"<"):
+                              open("build/web/%s/%s" % (folder, out), "wb").write(data)
+                              total += len(data)
+                              names.append(out)
+                              break
+                          print("bad data", out, len(data))
+                      except Exception as e:
+                          print("retry", out, e)
+                      time.sleep(3)
+              print(folder, len(names), "files")
+              assert len(names) >= min_count, "too few files in " + folder + " - build stopped"
+              json.dump(names, open("build/web/%s/list.json" % folder, "w"))
+          print("total MB:", total // 1048576)
+          assert total <= MAX_TOTAL, "media too large - build stopped"
+          PY
 
       - uses: actions/upload-pages-artifact@v3
         with:
