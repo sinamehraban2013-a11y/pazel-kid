@@ -74,9 +74,12 @@ class AssetManager {
       }
       return [];
     } catch (e) {
+      lastListError = e.toString();
       return [];
     }
   }
+
+  static String lastListError = '';
 
   static Future<bool> preloadFileList() async {
     try {
@@ -92,6 +95,12 @@ class AssetManager {
     }
   }
 
+  static String _webFallback(String url, int attempt) {
+    if (!kIsWeb || attempt < 2) return url;
+    final id = Uri.tryParse(url)?.queryParameters['id'];
+    return id == null ? url : 'https://lh3.googleusercontent.com/d/$id';
+  }
+
   static Future<Uint8List> fetchRandomImage({ProgressCallback? onProgress}) async {
     int attempts = 0;
     while (attempts < 2) {
@@ -101,14 +110,14 @@ class AssetManager {
           cachedImageUrls = await _fetchFolderFileUrls(imageFolderId, 'image');
         }
         if (cachedImageUrls.isEmpty) {
-          throw Exception('فهرست تصاویر دریافت نشد');
+          throw Exception('فهرست تصاویر دریافت نشد $lastListError');
         }
 
         final random = Random();
         final String selectedImageUrl = cachedImageUrls[random.nextInt(cachedImageUrls.length)];
 
         final response = await _dio.get<List<int>>(
-          selectedImageUrl,
+          _webFallback(selectedImageUrl, attempts),
           options: Options(responseType: ResponseType.bytes),
           onReceiveProgress: onProgress,
         );
@@ -133,7 +142,7 @@ class AssetManager {
           cachedAudioUrls = await _fetchFolderFileUrls(audioFolderId, 'audio');
         }
         if (cachedAudioUrls.isEmpty) {
-          throw Exception('فهرست صوت‌ها دریافت نشد');
+          throw Exception('فهرست صوت‌ها دریافت نشد $lastListError');
         }
 
         final random = Random();
