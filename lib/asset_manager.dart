@@ -80,6 +80,7 @@ class AssetManager {
   }
 
   static String lastListError = '';
+  static Uint8List? webAudioBytes;
 
   static Future<bool> preloadFileList() async {
     try {
@@ -148,7 +149,12 @@ class AssetManager {
         final random = Random();
         final String selectedAudioUrl = cachedAudioUrls[random.nextInt(cachedAudioUrls.length)];
         if (kIsWeb) {
-          // در وب فایل ذخیره نمی‌شود؛ خود آدرس مستقیم پخش می‌شود
+          final r = await _dio.get<List<int>>(
+            selectedAudioUrl,
+            options: Options(responseType: ResponseType.bytes),
+            onReceiveProgress: onProgress,
+          );
+          webAudioBytes = Uint8List.fromList(r.data!);
           return selectedAudioUrl;
         }
         final dir = await getTemporaryDirectory();
