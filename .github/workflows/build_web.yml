@@ -1,0 +1,61 @@
+name: Build Web (Eitaa Mini-App)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          cache: true
+
+      - name: Create web platform files
+        run: flutter create . --org com.example --project-name puzzle_kids_game --platforms=web
+
+      - name: Add Eitaa SDK to index.html
+        run: |
+          python3 - <<'PY'
+          p = 'web/index.html'
+          c = open(p, encoding='utf-8').read()
+          sdk = ('<script src="https://developer.eitaa.com/eitaa-web-app.js"></script>\n'
+                 '  <script>try{var w=window.Eitaa&&window.Eitaa.WebApp;if(w){w.ready();w.expand();}}catch(e){}</script>\n')
+          c = c.replace('<head>', '<head>\n  ' + sdk, 1)
+          c = c.replace('<html>', '<html lang="fa" dir="rtl">', 1)
+          open(p, 'w', encoding='utf-8').write(c)
+          PY
+
+      - run: flutter pub get
+
+      - name: Build web
+        run: flutter build web --release --base-href /pazel-kid/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
