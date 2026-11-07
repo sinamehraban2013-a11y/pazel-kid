@@ -173,11 +173,11 @@ class _GameScreenState extends State<GameScreen> {
       });
 
       // ۴. اجرای صوت
-      if (currentAudioPath != null && (!kIsWeb || AssetManager.webAudioBytes != null)) {
-        await _audioPlayer.play(kIsWeb
-            ? BytesSource(AssetManager.webAudioBytes!)
-            : DeviceFileSource(currentAudioPath!));
-      }
+if (currentAudioPath != null) {
+  await _audioPlayer.play(kIsWeb
+      ? UrlSource(currentAudioPath!)
+      : DeviceFileSource(currentAudioPath!));
+}
     } catch (e) {
       if (mounted) {
         setState(() {
