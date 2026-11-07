@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:gal/gal.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -173,7 +174,9 @@ class _GameScreenState extends State<GameScreen> {
 
       // ۴. اجرای صوت
       if (currentAudioPath != null) {
-        await _audioPlayer.play(DeviceFileSource(currentAudioPath!));
+        await _audioPlayer.play(kIsWeb
+            ? UrlSource(currentAudioPath!)
+            : DeviceFileSource(currentAudioPath!));
       }
     } catch (e) {
       if (mounted) {
@@ -428,6 +431,7 @@ class _GameScreenState extends State<GameScreen> {
                                 setDialogState(() => isSavingPuzzle = true);
                                 bool ok = false;
                                 try {
+                                  if (kIsWeb) throw UnsupportedError('gallery');
                                   final hasAccess = await Gal.hasAccess();
                                   if (!hasAccess) {
                                     final granted = await Gal.requestAccess();
