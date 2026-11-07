@@ -49,7 +49,7 @@ class AssetManager {
           // در نسخه وب فقط این آدرس هدر CORS دارد
           String downloadUrl = item['downloadUrl'] ??
               (kIsWeb
-                  ? "https://drive.usercontent.google.com/download?id=$fileId&export=download"
+                  ? "https://drive.usercontent.google.com/download?id=$fileId&export=download&confirm=t"
                   : "https://drive.google.com/uc?export=download&id=$fileId");
 
           if (filterType == 'image') {
@@ -149,12 +149,16 @@ class AssetManager {
         final random = Random();
         final String selectedAudioUrl = cachedAudioUrls[random.nextInt(cachedAudioUrls.length)];
         if (kIsWeb) {
-          final r = await _dio.get<List<int>>(
-            selectedAudioUrl,
-            options: Options(responseType: ResponseType.bytes),
-            onReceiveProgress: onProgress,
-          );
-          webAudioBytes = Uint8List.fromList(r.data!);
+          try {
+            final r = await _dio.get<List<int>>(
+              selectedAudioUrl,
+              options: Options(responseType: ResponseType.bytes),
+              onReceiveProgress: onProgress,
+            );
+            webAudioBytes = Uint8List.fromList(r.data!);
+          } catch (_) {
+            webAudioBytes = null; // بازی بدون صدا ادامه می‌یابد
+          }
           return selectedAudioUrl;
         }
         final dir = await getTemporaryDirectory();
