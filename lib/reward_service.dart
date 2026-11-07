@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:gal/gal.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,6 +35,7 @@ class RewardService {
 
   static Future<bool> saveCardToGallery(String assetPath) async {
     try {
+      if (kIsWeb) return false; // ذخیره در گالری در وب پشتیبانی نمی‌شود
       final hasAccess = await Gal.hasAccess();
       if (!hasAccess) {
         final granted = await Gal.requestAccess();
